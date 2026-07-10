@@ -163,10 +163,16 @@ body {
 .stock-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 0.5rem 0;
   border-bottom: 1px solid #eee;
   max-width: 480px;
+}
+
+.s-date {
+  font-size: 0.72rem;
+  color: #999;
+  margin-top: 2px;
 }
 
 .stock-row-right {

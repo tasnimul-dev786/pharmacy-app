@@ -1,4 +1,4 @@
-import { searchMasterList, addMedicineToStock, updateMedicineInStock } from './stockRepo.js';
+import { searchMasterList, addMedicineToStock, updateMedicineInStock, getLastEntryForBrand } from './stockRepo.js';
 
 function debounce(fn, delay) {
   let timer;
@@ -162,13 +162,28 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
     suggestionsList.classList.remove('hidden');
 
     suggestionsList.querySelectorAll('.suggestion-item').forEach((li, i) => {
-      li.addEventListener('click', () => {
+      li.addEventListener('click', async () => {
         const chosen = results[i];
         selectedFromList = true;
         brandInput.value = chosen.brandName;
-        genericInput.value = chosen.genericName || '';
+        // জেনেরিক নামের সাথে স্ট্রেংথও জুড়ে দেওয়া হচ্ছে (যেমন: Metronidazole · 400mg)
+        // যাতে একই ব্র্যান্ডের বিভিন্ন স্ট্রেংথ (400mg vs 200mg) আলাদা করা যায়
+        genericInput.value = [chosen.genericName, chosen.strength].filter(Boolean).join(' · ');
         suggestionsList.classList.add('hidden');
         suggestionsList.innerHTML = '';
+
+        // --- আগে এই মেডিসিন (একই ব্র্যান্ড+স্ট্রেংথ) স্টকে যোগ করা থাকলে
+        // তার ইউনিট/কনভার্শন/দাম অটো-ফিল করা হচ্ছে ---
+        const lastEntry = await getLastEntryForBrand(chosen.brandName, genericInput.value);
+        if (lastEntry && !isEdit) {
+          unitSelect.value = lastEntry.unit || 'piece';
+          piecesPerStripInput.value = lastEntry.piecesPerStrip || '';
+          stripsPerBoxInput.value = lastEntry.stripsPerBox || '';
+          priceInput.value = lastEntry.unitPrice ?? '';
+          updateConversionFieldsVisibility();
+          messageEl.textContent = 'ℹ️ আগের এন্ট্রি থেকে ইউনিট ও দাম অটো-ফিল করা হয়েছে, চাইলে বদলে দাও';
+          messageEl.className = 'form-message';
+        }
       });
     });
   }, 250);

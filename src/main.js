@@ -20,6 +20,14 @@ function filterStock(stock, query) {
   );
 }
 
+function formatDate(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const day = d.getDate();
+  const monthNames = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্ট', 'অক্টো', 'নভে', 'ডিসে'];
+  return `${day} ${monthNames[d.getMonth()]}`;
+}
+
 function renderStockRows(listEl, stock) {
   if (stock.length === 0) {
     listEl.innerHTML = '<p class="empty-note">কোনো মেডিসিন পাওয়া যায়নি।</p>';
@@ -29,11 +37,13 @@ function renderStockRows(listEl, stock) {
     .map((m) => {
       const unitLabel = unitLabels[m.unit] || 'পিস';
       const showTotalPieces = m.unit && m.unit !== 'piece' && m.totalPieces;
+      const addedDate = formatDate(m.createdAt);
       return `
       <div class="stock-row" data-id="${m.id}">
         <div>
           <strong>${m.brandName}</strong>
           ${m.genericName ? `<span class="s-generic"> · ${m.genericName}</span>` : ''}
+          ${addedDate ? `<div class="s-date">যোগ হয়েছে: ${addedDate}</div>` : ''}
         </div>
         <div class="stock-row-right">
           <span>

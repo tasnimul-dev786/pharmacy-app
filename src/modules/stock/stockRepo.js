@@ -128,6 +128,32 @@ export async function updateMedicineInStock(id, {
   });
 }
 
+/**
+ * একই ব্র্যান্ড (ও সম্ভব হলে একই জেনেরিক/স্ট্রেংথ) এর সর্বশেষ স্টক এন্ট্রি খুঁজে বের করা।
+ * এটা দিয়ে ইউনিট/কনভার্শন/দাম আগের এন্ট্রি থেকে অটো-ফিল করা হয়।
+ */
+export async function getLastEntryForBrand(brandName, genericName = '') {
+  if (!brandName) return null;
+
+  const candidates = await db.medicines
+    .where('brandName')
+    .equalsIgnoreCase(brandName.trim())
+    .toArray();
+
+  if (candidates.length === 0) return null;
+
+  let matches = candidates;
+  if (genericName && genericName.trim()) {
+    const filtered = candidates.filter(
+      (c) => (c.genericName || '').toLowerCase() === genericName.trim().toLowerCase()
+    );
+    if (filtered.length > 0) matches = filtered;
+  }
+
+  matches.sort((a, b) => b.id - a.id);
+  return matches[0];
+}
+
 /** স্টক থেকে একটা এন্ট্রি ডিলিট করা */
 export async function deleteMedicineFromStock(id) {
   await db.medicines.delete(id);
