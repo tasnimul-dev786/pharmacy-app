@@ -21,3 +21,136 @@ body {
 #app-content {
   padding: 1.5rem;
 }
+
+/* --- স্টক ফর্ম --- */
+.stock-form {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  position: relative;
+}
+
+.form-field label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.form-field input {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.optional-fields {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+.optional-fields summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.optional-fields .form-field {
+  margin-top: 0.7rem;
+}
+
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.suggestions-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-2, #fff);
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 0.2rem;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  z-index: 10;
+}
+
+.suggestions-list.hidden {
+  display: none;
+}
+
+.suggestion-item {
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #eee;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: #f2f2f2;
+}
+
+.s-brand {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.s-generic {
+  font-size: 0.78rem;
+  color: #777;
+}
+
+.btn-primary {
+  padding: 0.6rem 1rem;
+  background: #1a7f4e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: #146339;
+}
+
+.form-message {
+  font-size: 0.85rem;
+  min-height: 1.2rem;
+}
+
+.form-message.success {
+  color: #1a7f4e;
+}
+
+.form-message.error {
+  color: #c0392b;
+}
+
+.stock-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  max-width: 420px;
+}
+
+.empty-note {
+  color: #888;
+  font-size: 0.9rem;
+}
