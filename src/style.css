@@ -63,6 +63,10 @@ body {
   display: none;
 }
 
+.form-field.hidden {
+  display: none;
+}
+
 .optional-fields {
   border: 1px solid #ddd;
   border-radius: 8px;
