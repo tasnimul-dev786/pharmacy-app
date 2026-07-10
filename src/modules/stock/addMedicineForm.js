@@ -31,6 +31,26 @@ export function renderAddMedicineForm(container, onSuccess) {
         <input type="number" id="quantity" name="quantity" min="0" required placeholder="যেমন: 100" />
       </div>
 
+      <div class="form-field">
+        <label for="unit">এককের ধরন *</label>
+        <select id="unit" name="unit">
+          <option value="piece">পিস</option>
+          <option value="strip">স্ট্রিপ</option>
+          <option value="box">বক্স</option>
+        </select>
+      </div>
+
+      <div id="conversion-fields" class="conversion-fields hidden">
+        <div class="form-field" id="piecesPerStrip-field">
+          <label for="piecesPerStrip">১ স্ট্রিপে কয়টা পিস?</label>
+          <input type="number" id="piecesPerStrip" name="piecesPerStrip" min="1" placeholder="যেমন: 10" />
+        </div>
+        <div class="form-field" id="stripsPerBox-field">
+          <label for="stripsPerBox">১ বক্সে কয়টা স্ট্রিপ?</label>
+          <input type="number" id="stripsPerBox" name="stripsPerBox" min="1" placeholder="যেমন: 10" />
+        </div>
+      </div>
+
       <details class="optional-fields">
         <summary>ব্যাচ / এক্সপায়ারি / দাম (ঐচ্ছিক)</summary>
 
@@ -61,6 +81,30 @@ export function renderAddMedicineForm(container, onSuccess) {
   const genericInput = container.querySelector('#genericName');
   const suggestionsList = container.querySelector('#suggestions');
   const messageEl = container.querySelector('#form-message');
+  const unitSelect = container.querySelector('#unit');
+  const conversionFields = container.querySelector('#conversion-fields');
+  const piecesPerStripField = container.querySelector('#piecesPerStrip-field');
+  const stripsPerBoxField = container.querySelector('#stripsPerBox-field');
+  const piecesPerStripInput = container.querySelector('#piecesPerStrip');
+  const stripsPerBoxInput = container.querySelector('#stripsPerBox');
+
+  function updateConversionFieldsVisibility() {
+    const unit = unitSelect.value;
+    if (unit === 'piece') {
+      conversionFields.classList.add('hidden');
+    } else if (unit === 'strip') {
+      conversionFields.classList.remove('hidden');
+      piecesPerStripField.classList.remove('hidden');
+      stripsPerBoxField.classList.add('hidden');
+    } else if (unit === 'box') {
+      conversionFields.classList.remove('hidden');
+      piecesPerStripField.classList.remove('hidden');
+      stripsPerBoxField.classList.remove('hidden');
+    }
+  }
+
+  unitSelect.addEventListener('change', updateConversionFieldsVisibility);
+  updateConversionFieldsVisibility();
 
   let selectedFromList = false;
 
@@ -123,12 +167,27 @@ export function renderAddMedicineForm(container, onSuccess) {
     messageEl.className = 'form-message';
 
     const formData = new FormData(form);
+    const unit = formData.get('unit');
+
+    if (unit === 'strip' && !formData.get('piecesPerStrip')) {
+      messageEl.textContent = '✗ স্ট্রিপ বাছাই করলে "১ স্ট্রিপে কয়টা পিস" দিতে হবে';
+      messageEl.classList.add('error');
+      return;
+    }
+    if (unit === 'box' && (!formData.get('piecesPerStrip') || !formData.get('stripsPerBox'))) {
+      messageEl.textContent = '✗ বক্স বাছাই করলে স্ট্রিপ ও পিস দুইটাই দিতে হবে';
+      messageEl.classList.add('error');
+      return;
+    }
 
     try {
       await addMedicineToStock({
         brandName: formData.get('brandName'),
         genericName: formData.get('genericName'),
         quantity: formData.get('quantity'),
+        unit,
+        piecesPerStrip: formData.get('piecesPerStrip') || 1,
+        stripsPerBox: formData.get('stripsPerBox') || 1,
         batchNo: formData.get('batchNo'),
         expiryDate: formData.get('expiryDate'),
         unitPrice: formData.get('unitPrice'),
@@ -137,6 +196,7 @@ export function renderAddMedicineForm(container, onSuccess) {
       messageEl.textContent = '✓ মেডিসিন স্টকে যোগ হয়েছে';
       messageEl.classList.add('success');
       form.reset();
+      updateConversionFieldsVisibility();
 
       if (onSuccess) onSuccess();
     } catch (err) {

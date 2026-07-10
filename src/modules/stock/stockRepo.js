@@ -20,11 +20,18 @@ export async function searchMasterList(query) {
 /**
  * দোকানের নিজস্ব স্টকে নতুন মেডিসিন যোগ করা
  * শুধু brandName ও quantity আবশ্যিক, বাকি সব ঐচ্ছিক
+ *
+ * unit: 'piece' | 'strip' | 'box'
+ * piecesPerStrip: unit যদি 'strip' বা 'box' হয়, তাহলে ১ স্ট্রিপে কয়টা পিস
+ * stripsPerBox: unit যদি 'box' হয়, তাহলে ১ বক্সে কয়টা স্ট্রিপ
  */
 export async function addMedicineToStock({
   brandName,
   genericName = '',
   quantity,
+  unit = 'piece',
+  piecesPerStrip = 1,
+  stripsPerBox = 1,
   batchNo = '',
   expiryDate = '',
   unitPrice = null,
@@ -39,10 +46,26 @@ export async function addMedicineToStock({
     throw new Error('কোয়ান্টিটি ঋণাত্মক হতে পারে না');
   }
 
+  const pps = Number(piecesPerStrip) > 0 ? Number(piecesPerStrip) : 1;
+  const spb = Number(stripsPerBox) > 0 ? Number(stripsPerBox) : 1;
+
+  let totalPieces;
+  if (unit === 'box') {
+    totalPieces = Number(quantity) * spb * pps;
+  } else if (unit === 'strip') {
+    totalPieces = Number(quantity) * pps;
+  } else {
+    totalPieces = Number(quantity);
+  }
+
   const id = await db.medicines.add({
     brandName: brandName.trim(),
     genericName: genericName.trim(),
     quantity: Number(quantity),
+    unit,
+    piecesPerStrip: pps,
+    stripsPerBox: spb,
+    totalPieces,
     batchNo: batchNo.trim(),
     expiryDate: expiryDate || null,
     unitPrice: unitPrice !== null && unitPrice !== '' ? Number(unitPrice) : null,

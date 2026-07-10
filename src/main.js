@@ -8,6 +8,8 @@ import { getAllStock } from './modules/stock/stockRepo.js';
 
 const contentEl = document.getElementById('app-content');
 
+const unitLabels = { piece: 'পিস', strip: 'স্ট্রিপ', box: 'বক্স' };
+
 async function renderStockList(listEl) {
   const stock = await getAllStock();
   if (stock.length === 0) {
@@ -15,16 +17,21 @@ async function renderStockList(listEl) {
     return;
   }
   listEl.innerHTML = stock
-    .map(
-      (m) => `
+    .map((m) => {
+      const unitLabel = unitLabels[m.unit] || 'পিস';
+      const showTotalPieces = m.unit && m.unit !== 'piece' && m.totalPieces;
+      return `
       <div class="stock-row">
         <div>
           <strong>${m.brandName}</strong>
           ${m.genericName ? `<span class="s-generic"> · ${m.genericName}</span>` : ''}
         </div>
-        <div>${m.quantity} পিস</div>
-      </div>`
-    )
+        <div>
+          ${m.quantity} ${unitLabel}
+          ${showTotalPieces ? `<span class="s-generic"> (${m.totalPieces} পিস)</span>` : ''}
+        </div>
+      </div>`;
+    })
     .join('');
 }
 

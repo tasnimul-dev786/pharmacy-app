@@ -21,6 +21,16 @@ db.version(1).stores({
   invoices: '++id, saleId, invoiceNumber, date, printed',
 });
 
+// ভার্সন ২ — Unit conversion (বক্স/স্ট্রিপ/পিস) যোগ হওয়ায় totalPieces ইনডেক্স করা হলো।
+// পুরনো এন্ট্রিতে totalPieces খালি থাকবে, নতুন এন্ট্রি থেকে ভরবে।
+// Dexie নিজে থেকেই পুরনো ডাটা সংরক্ষণ করে ভার্সন আপগ্রেড করে।
+db.version(2).stores({
+  medicines: '++id, brandName, genericName, batchNo, expiryDate, quantity, totalPieces',
+  medicinesMaster: '++id, brandName, genericName',
+  sales: '++id, date, customerName, total',
+  invoices: '++id, saleId, invoiceNumber, date, printed',
+});
+
 // ছোট্ট হেলথ-চেক ফাংশন — DB ঠিকমতো ওপেন হচ্ছে কিনা যাচাই করতে
 export async function checkDbConnection() {
   await db.open();

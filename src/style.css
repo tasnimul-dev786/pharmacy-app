@@ -42,11 +42,25 @@ body {
   font-weight: 500;
 }
 
-.form-field input {
+.form-field input,
+.form-field select {
   padding: 0.55rem 0.7rem;
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 0.95rem;
+}
+
+.conversion-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: #f7f7f7;
+  padding: 0.7rem;
+  border-radius: 8px;
+}
+
+.conversion-fields.hidden {
+  display: none;
 }
 
 .optional-fields {
