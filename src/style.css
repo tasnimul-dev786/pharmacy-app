@@ -163,9 +163,48 @@ body {
 .stock-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.5rem 0;
   border-bottom: 1px solid #eee;
-  max-width: 420px;
+  max-width: 480px;
+}
+
+.stock-row-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.row-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+}
+
+.row-btn:hover {
+  background: #eee;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.btn-secondary {
+  padding: 0.6rem 1rem;
+  background: #eee;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: #ddd;
 }
 
 .empty-note {

@@ -79,3 +79,56 @@ export async function addMedicineToStock({
 export async function getAllStock() {
   return await db.medicines.orderBy('id').reverse().toArray();
 }
+
+/** এক্সিস্টিং স্টক এন্ট্রি আপডেট করা (একই validation ও conversion লজিক প্রয়োগ হয়) */
+export async function updateMedicineInStock(id, {
+  brandName,
+  genericName = '',
+  quantity,
+  unit = 'piece',
+  piecesPerStrip = 1,
+  stripsPerBox = 1,
+  batchNo = '',
+  expiryDate = '',
+  unitPrice = null,
+}) {
+  if (!brandName || !brandName.trim()) {
+    throw new Error('মেডিসিনের নাম আবশ্যিক');
+  }
+  if (quantity === null || quantity === undefined || quantity === '' || isNaN(quantity)) {
+    throw new Error('সঠিক কোয়ান্টিটি দিতে হবে');
+  }
+  if (Number(quantity) < 0) {
+    throw new Error('কোয়ান্টিটি ঋণাত্মক হতে পারে না');
+  }
+
+  const pps = Number(piecesPerStrip) > 0 ? Number(piecesPerStrip) : 1;
+  const spb = Number(stripsPerBox) > 0 ? Number(stripsPerBox) : 1;
+
+  let totalPieces;
+  if (unit === 'box') {
+    totalPieces = Number(quantity) * spb * pps;
+  } else if (unit === 'strip') {
+    totalPieces = Number(quantity) * pps;
+  } else {
+    totalPieces = Number(quantity);
+  }
+
+  await db.medicines.update(id, {
+    brandName: brandName.trim(),
+    genericName: genericName.trim(),
+    quantity: Number(quantity),
+    unit,
+    piecesPerStrip: pps,
+    stripsPerBox: spb,
+    totalPieces,
+    batchNo: batchNo.trim(),
+    expiryDate: expiryDate || null,
+    unitPrice: unitPrice !== null && unitPrice !== '' ? Number(unitPrice) : null,
+  });
+}
+
+/** স্টক থেকে একটা এন্ট্রি ডিলিট করা */
+export async function deleteMedicineFromStock(id) {
+  await db.medicines.delete(id);
+}

@@ -1,4 +1,4 @@
-import { searchMasterList, addMedicineToStock } from './stockRepo.js';
+import { searchMasterList, addMedicineToStock, updateMedicineInStock } from './stockRepo.js';
 
 function debounce(fn, delay) {
   let timer;
@@ -9,10 +9,13 @@ function debounce(fn, delay) {
 }
 
 /**
- * container এর ভেতরে "নতুন মেডিসিন যোগ করো" ফর্ম রেন্ডার করে।
- * onSuccess কল হয় যখন মেডিসিন সফলভাবে স্টকে যোগ হয় (list রিফ্রেশ করার জন্য)।
+ * container এর ভেতরে "নতুন মেডিসিন যোগ করো" (বা এডিট) ফর্ম রেন্ডার করে।
+ * onSuccess কল হয় যখন মেডিসিন সফলভাবে সেভ হয় (list রিফ্রেশ করার জন্য)।
+ * editRecord দিলে ফর্ম এডিট-মোডে চলে যায় (প্রিফিল করা, "আপডেট করো" বাটন)।
  */
-export function renderAddMedicineForm(container, onSuccess) {
+export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
+  const isEdit = !!editRecord;
+
   container.innerHTML = `
     <form id="add-medicine-form" class="stock-form">
       <div class="form-field autocomplete-wrapper">
@@ -51,7 +54,7 @@ export function renderAddMedicineForm(container, onSuccess) {
         </div>
       </div>
 
-      <details class="optional-fields">
+      <details class="optional-fields" ${isEdit ? 'open' : ''}>
         <summary>ব্যাচ / এক্সপায়ারি / দাম (ঐচ্ছিক)</summary>
 
         <div class="form-field">
@@ -72,7 +75,10 @@ export function renderAddMedicineForm(container, onSuccess) {
 
       <div id="form-message" class="form-message"></div>
 
-      <button type="submit" class="btn-primary">স্টকে যোগ করো</button>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">${isEdit ? 'আপডেট করো' : 'স্টকে যোগ করো'}</button>
+        ${isEdit ? '<button type="button" id="cancel-edit-btn" class="btn-secondary">বাতিল</button>' : ''}
+      </div>
     </form>
   `;
 
@@ -85,8 +91,25 @@ export function renderAddMedicineForm(container, onSuccess) {
   const conversionFields = container.querySelector('#conversion-fields');
   const piecesPerStripField = container.querySelector('#piecesPerStrip-field');
   const stripsPerBoxField = container.querySelector('#stripsPerBox-field');
+  const quantityInput = container.querySelector('#quantity');
+  const batchInput = container.querySelector('#batchNo');
+  const expiryInput = container.querySelector('#expiryDate');
+  const priceInput = container.querySelector('#unitPrice');
   const piecesPerStripInput = container.querySelector('#piecesPerStrip');
   const stripsPerBoxInput = container.querySelector('#stripsPerBox');
+
+  // --- এডিট মোড হলে ফিল্ডগুলো প্রিফিল করা ---
+  if (isEdit) {
+    brandInput.value = editRecord.brandName || '';
+    genericInput.value = editRecord.genericName || '';
+    quantityInput.value = editRecord.quantity ?? '';
+    unitSelect.value = editRecord.unit || 'piece';
+    batchInput.value = editRecord.batchNo || '';
+    expiryInput.value = editRecord.expiryDate || '';
+    priceInput.value = editRecord.unitPrice ?? '';
+    piecesPerStripInput.value = editRecord.piecesPerStrip || '';
+    stripsPerBoxInput.value = editRecord.stripsPerBox || '';
+  }
 
   function updateConversionFieldsVisibility() {
     const unit = unitSelect.value;
@@ -160,6 +183,13 @@ export function renderAddMedicineForm(container, onSuccess) {
     }
   });
 
+  // --- বাতিল বাটন (শুধু এডিট মোডে) ---
+  if (isEdit) {
+    container.querySelector('#cancel-edit-btn').addEventListener('click', () => {
+      if (onSuccess) onSuccess({ cancelled: true });
+    });
+  }
+
   // --- ফর্ম সাবমিট ---
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -180,25 +210,31 @@ export function renderAddMedicineForm(container, onSuccess) {
       return;
     }
 
+    const payload = {
+      brandName: formData.get('brandName'),
+      genericName: formData.get('genericName'),
+      quantity: formData.get('quantity'),
+      unit,
+      piecesPerStrip: formData.get('piecesPerStrip') || 1,
+      stripsPerBox: formData.get('stripsPerBox') || 1,
+      batchNo: formData.get('batchNo'),
+      expiryDate: formData.get('expiryDate'),
+      unitPrice: formData.get('unitPrice'),
+    };
+
     try {
-      await addMedicineToStock({
-        brandName: formData.get('brandName'),
-        genericName: formData.get('genericName'),
-        quantity: formData.get('quantity'),
-        unit,
-        piecesPerStrip: formData.get('piecesPerStrip') || 1,
-        stripsPerBox: formData.get('stripsPerBox') || 1,
-        batchNo: formData.get('batchNo'),
-        expiryDate: formData.get('expiryDate'),
-        unitPrice: formData.get('unitPrice'),
-      });
-
-      messageEl.textContent = '✓ মেডিসিন স্টকে যোগ হয়েছে';
+      if (isEdit) {
+        await updateMedicineInStock(editRecord.id, payload);
+        messageEl.textContent = '✓ মেডিসিন আপডেট হয়েছে';
+      } else {
+        await addMedicineToStock(payload);
+        messageEl.textContent = '✓ মেডিসিন স্টকে যোগ হয়েছে';
+        form.reset();
+        updateConversionFieldsVisibility();
+      }
       messageEl.classList.add('success');
-      form.reset();
-      updateConversionFieldsVisibility();
 
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess({ cancelled: false });
     } catch (err) {
       messageEl.textContent = '✗ ' + err.message;
       messageEl.classList.add('error');
