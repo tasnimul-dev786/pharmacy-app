@@ -1,5 +1,5 @@
 import { searchStock } from '../stock/stockRepo.js';
-import { confirmSale } from './salesRepo.js';
+import { confirmSale, getAllSales } from './salesRepo.js';
 import {
   getCart,
   addToCart,
@@ -59,6 +59,7 @@ function renderCartTable(el) {
       msgEl.textContent = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)}`;
       msgEl.classList.add('success');
       clearCart();
+      renderSalesHistory(document.getElementById('sales-history-container'));
     } catch (err) {
       msgEl.textContent = '✗ ' + err.message;
       msgEl.classList.add('error');
@@ -82,6 +83,35 @@ function renderCartTable(el) {
   });
 }
 
+function formatDateTime(isoString) {
+  const d = new Date(isoString);
+  const monthNames = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্ট', 'অক্টো', 'নভে', 'ডিসে'];
+  const hh = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  return `${d.getDate()} ${monthNames[d.getMonth()]}, ${hh}:${mm}`;
+}
+
+async function renderSalesHistory(el) {
+  const sales = await getAllSales();
+  if (sales.length === 0) {
+    el.innerHTML = '<p class="empty-note">এখনো কোনো সেল হয়নি।</p>';
+    return;
+  }
+  el.innerHTML = sales
+    .slice(0, 20)
+    .map(
+      (s) => `
+      <div class="stock-row">
+        <div>
+          <strong>${formatDateTime(s.date)}</strong>
+          <div class="s-generic">${s.items.map((i) => `${i.brandName} × ${i.qty}`).join(', ')}</div>
+        </div>
+        <div>৳${s.total.toFixed(2)}</div>
+      </div>`
+    )
+    .join('');
+}
+
 /** সেল ভিউ (সার্চ + কার্ট) container এর ভেতরে রেন্ডার করে */
 export function renderSaleView(container) {
   container.innerHTML = `
@@ -93,14 +123,18 @@ export function renderSaleView(container) {
     <h3 style="margin-top:1.5rem">কার্ট</h3>
     <div id="cart-container"></div>
     <div id="sale-message" class="form-message"></div>
+    <h3 style="margin-top:2rem">সেলস হিস্ট্রি (সাম্প্রতিক ২০টা)</h3>
+    <div id="sales-history-container"></div>
   `;
 
   const searchInput = container.querySelector('#sale-search');
   const suggestionsList = container.querySelector('#sale-suggestions');
   const cartContainer = container.querySelector('#cart-container');
+  const historyContainer = container.querySelector('#sales-history-container');
 
   onCartChange(() => renderCartTable(cartContainer));
   renderCartTable(cartContainer);
+  renderSalesHistory(historyContainer);
 
   const runSearch = debounce(async (query) => {
     if (!query.trim()) {

@@ -218,13 +218,25 @@ body {
   font-size: 0.9rem;
 }
 
-/* --- ট্যাব নেভ --- */
+/* --- ট্যাব নেভ (ফিক্সড, স্ক্রল করলেও থাকবে) --- */
 .bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
+  justify-content: space-around;
   gap: 0.5rem;
-  margin-bottom: 1.2rem;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 0.5rem;
+  background: white;
+  border-top: 1px solid #ddd;
+  padding: 0.6rem 0.5rem;
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  box-shadow: 0 -2px 6px rgba(0,0,0,0.05);
+}
+
+.view-container {
+  padding-bottom: 4rem;
 }
 
 .nav-btn {
