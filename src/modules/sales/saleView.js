@@ -1,6 +1,7 @@
 import { searchStock } from '../stock/stockRepo.js';
 import { confirmSale, getAllSales, getInvoiceBySaleId } from './salesRepo.js';
 import { downloadInvoicePDF } from './invoicePdf.js';
+import { printReceipt } from './receiptPrint.js';
 import { renderShopInfoForm } from '../settings/settingsForm.js';
 import {
   getCart,
@@ -58,10 +59,13 @@ function renderCartTable(el) {
     msgEl.className = 'form-message';
     try {
       const result = await confirmSale(getCart());
-      msgEl.innerHTML = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)} &nbsp; <button id="download-pdf-btn" class="btn-secondary">📄 PDF ডাউনলোড</button>`;
+      msgEl.innerHTML = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)} &nbsp; <button id="download-pdf-btn" class="btn-secondary">📄 PDF</button> <button id="print-receipt-btn" class="btn-secondary">🖨️ প্রিন্ট</button>`;
       msgEl.classList.add('success');
       msgEl.querySelector('#download-pdf-btn').addEventListener('click', () => {
         downloadInvoicePDF(result, result.invoiceNumber);
+      });
+      msgEl.querySelector('#print-receipt-btn').addEventListener('click', () => {
+        printReceipt(result, result.invoiceNumber);
       });
       clearCart();
       renderSalesHistory(document.getElementById('sales-history-container'));
@@ -114,6 +118,7 @@ async function renderSalesHistory(el) {
         <div class="stock-row-right">
           <span>৳${s.total.toFixed(2)}</span>
           <button class="row-btn history-pdf-btn" data-sale-id="${s.id}" title="PDF ডাউনলোড">📄</button>
+          <button class="row-btn history-print-btn" data-sale-id="${s.id}" title="প্রিন্ট">🖨️</button>
         </div>
       </div>`
     )
@@ -126,6 +131,17 @@ async function renderSalesHistory(el) {
       const invoice = await getInvoiceBySaleId(saleId);
       if (sale && invoice) {
         await downloadInvoicePDF(sale, invoice.invoiceNumber);
+      }
+    });
+  });
+
+  el.querySelectorAll('.history-print-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const saleId = Number(btn.dataset.saleId);
+      const sale = sales.find((s) => s.id === saleId);
+      const invoice = await getInvoiceBySaleId(saleId);
+      if (sale && invoice) {
+        await printReceipt(sale, invoice.invoiceNumber);
       }
     });
   });

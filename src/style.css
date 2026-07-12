@@ -285,3 +285,28 @@ body {
   margin-top: 0.6rem;
   font-size: 1.05rem;
 }
+
+/* --- POS থার্মাল রিসিট প্রিন্ট --- */
+#print-receipt-area {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-receipt-area, #print-receipt-area * {
+    visibility: visible;
+  }
+  #print-receipt-area {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+  }
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+}
