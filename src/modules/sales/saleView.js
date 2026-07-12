@@ -1,13 +1,11 @@
 import { searchStock } from '../stock/stockRepo.js';
-import { confirmSale, getAllSales, getInvoiceBySaleId } from './salesRepo.js';
+import { confirmSale, getAllSales, getInvoiceBySaleId, getTopSellingStock } from './salesRepo.js';
 import { downloadInvoicePDF } from './invoicePdf.js';
 import { printReceipt } from './receiptPrint.js';
 import { renderShopInfoForm } from '../settings/settingsForm.js';
 import {
   getCart,
   addToCart,
-  updateCartItemQty,
-  updateCartItemPrice,
   removeFromCart,
   getCartTotal,
   onCartChange,
@@ -42,7 +40,7 @@ function renderCartTable(el) {
             <td>${c.brandName}${c.genericName ? `<div class="s-generic">${c.genericName}</div>` : ''}</td>
             <td><input type="number" class="cart-qty" min="1" value="${c.qty}" data-id="${c.medicineId}" /></td>
             <td><input type="number" class="cart-price" min="0" step="0.01" value="${c.unitPrice}" data-id="${c.medicineId}" /></td>
-            <td>৳${(c.qty * c.unitPrice).toFixed(2)}</td>
+            <td class="cart-subtotal">৳${(c.qty * c.unitPrice).toFixed(2)}</td>
             <td><button class="row-btn cart-remove-btn" data-id="${c.medicineId}" title="বাদ দাও">🗑️</button></td>
           </tr>`
           )
@@ -75,16 +73,61 @@ function renderCartTable(el) {
     }
   });
 
+  // --- কোয়ান্টিটি/দাম ইনপুট — সরাসরি ডাটা মিউটেট করা হয় (notify/re-render ছাড়া)
+  // যাতে টাইপ করার সময় ইনপুট বক্স থেকে ফোকাস হারিয়ে না যায় ---
+  function updateRowDisplay(medicineId) {
+    const item = cart.find((c) => c.medicineId === medicineId);
+    if (!item) return;
+    const row = el.querySelector(`tr[data-id="${medicineId}"]`);
+    if (row) {
+      row.querySelector('.cart-subtotal').textContent = `৳${(item.qty * item.unitPrice).toFixed(2)}`;
+    }
+    const totalEl = el.querySelector('.cart-total');
+    if (totalEl) totalEl.textContent = `মোট: ৳${getCartTotal().toFixed(2)}`;
+  }
+
   el.querySelectorAll('.cart-qty').forEach((input) => {
     input.addEventListener('input', (e) => {
-      updateCartItemQty(Number(e.target.dataset.id), e.target.value);
+      const id = Number(e.target.dataset.id);
+      const item = cart.find((c) => c.medicineId === id);
+      if (item) {
+        const val = Number(e.target.value);
+        item.qty = e.target.value === '' ? '' : (isNaN(val) ? item.qty : val);
+      }
+      updateRowDisplay(id);
+    });
+    input.addEventListener('blur', (e) => {
+      const id = Number(e.target.dataset.id);
+      const item = cart.find((c) => c.medicineId === id);
+      if (item && (item.qty === '' || item.qty < 1)) {
+        item.qty = 1;
+        e.target.value = 1;
+        updateRowDisplay(id);
+      }
     });
   });
+
   el.querySelectorAll('.cart-price').forEach((input) => {
     input.addEventListener('input', (e) => {
-      updateCartItemPrice(Number(e.target.dataset.id), e.target.value);
+      const id = Number(e.target.dataset.id);
+      const item = cart.find((c) => c.medicineId === id);
+      if (item) {
+        const val = Number(e.target.value);
+        item.unitPrice = e.target.value === '' ? '' : (isNaN(val) ? item.unitPrice : val);
+      }
+      updateRowDisplay(id);
+    });
+    input.addEventListener('blur', (e) => {
+      const id = Number(e.target.dataset.id);
+      const item = cart.find((c) => c.medicineId === id);
+      if (item && (item.unitPrice === '' || item.unitPrice < 0)) {
+        item.unitPrice = 0;
+        e.target.value = 0;
+        updateRowDisplay(id);
+      }
     });
   });
+
   el.querySelectorAll('.cart-remove-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       removeFromCart(Number(e.target.dataset.id));
@@ -174,15 +217,9 @@ export function renderSaleView(container) {
   renderCartTable(cartContainer);
   renderSalesHistory(historyContainer);
 
-  const runSearch = debounce(async (query) => {
-    if (!query.trim()) {
-      suggestionsList.classList.add('hidden');
-      suggestionsList.innerHTML = '';
-      return;
-    }
-    const results = await searchStock(query);
+  function showSuggestions(results, { emptyLabel = 'স্টকে পাওয়া যায়নি' } = {}) {
     if (results.length === 0) {
-      suggestionsList.innerHTML = '<li class="suggestion-item">স্টকে পাওয়া যায়নি</li>';
+      suggestionsList.innerHTML = `<li class="suggestion-item">${emptyLabel}</li>`;
       suggestionsList.classList.remove('hidden');
       return;
     }
@@ -206,9 +243,27 @@ export function renderSaleView(container) {
         searchInput.focus();
       });
     });
+  }
+
+  const runSearch = debounce(async (query) => {
+    if (!query.trim()) {
+      const top = await getTopSellingStock(8);
+      showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
+      return;
+    }
+    const results = await searchStock(query);
+    showSuggestions(results);
   }, 250);
 
   searchInput.addEventListener('input', (e) => runSearch(e.target.value));
+
+  // বক্সে ক্লিক/ফোকাস করা মাত্র ডিফল্ট লিস্ট (টপ সেলিং বা সাম্প্রতিক) দেখাবে
+  searchInput.addEventListener('focus', async () => {
+    if (!searchInput.value.trim()) {
+      const top = await getTopSellingStock(8);
+      showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
+    }
+  });
 
   document.addEventListener('click', (e) => {
     if (!container.contains(e.target)) return;

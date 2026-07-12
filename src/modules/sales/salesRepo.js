@@ -80,3 +80,41 @@ export async function getAllSales() {
 export async function getInvoiceBySaleId(saleId) {
   return await db.invoices.where('saleId').equals(saleId).first();
 }
+
+/**
+ * সবচেয়ে বেশি বিক্রি হওয়া মেডিসিন (স্টকে এখনো আছে এমন) — সেল স্ক্রিনে সার্চ বক্সে
+ * ক্লিক করলে ডিফল্ট সাজেশন হিসেবে দেখানোর জন্য। বিক্রির ইতিহাস না থাকলে
+ * সাম্প্রতিক যোগ করা স্টক দিয়ে পূরণ করা হয়।
+ */
+export async function getTopSellingStock(limit = 8) {
+  const sales = await db.sales.toArray();
+  const qtyByMedicine = {};
+  sales.forEach((s) => {
+    s.items.forEach((i) => {
+      qtyByMedicine[i.medicineId] = (qtyByMedicine[i.medicineId] || 0) + i.qty;
+    });
+  });
+
+  const sortedIds = Object.entries(qtyByMedicine)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => Number(id));
+
+  const results = [];
+  for (const id of sortedIds) {
+    if (results.length >= limit) break;
+    const med = await db.medicines.get(id);
+    if (med && (med.totalPieces ?? med.quantity) > 0) results.push(med);
+  }
+
+  if (results.length < limit) {
+    const recent = await db.medicines.orderBy('id').reverse().toArray();
+    for (const med of recent) {
+      if (results.length >= limit) break;
+      if ((med.totalPieces ?? med.quantity) > 0 && !results.find((r) => r.id === med.id)) {
+        results.push(med);
+      }
+    }
+  }
+
+  return results;
+}
