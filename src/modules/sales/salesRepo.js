@@ -61,11 +61,22 @@ export async function confirmSale(cartItems, customerName = '') {
       printed: false,
     });
 
-    return { saleId, invoiceNumber, total };
+    return { saleId, invoiceNumber, total, date, items: cartItems.map((c) => ({
+      brandName: c.brandName,
+      genericName: c.genericName,
+      qty: c.qty,
+      unitPrice: c.unitPrice,
+      subtotal: c.qty * c.unitPrice,
+    })) };
   });
 }
 
 /** সেলস হিস্ট্রি — নতুন আগে */
 export async function getAllSales() {
   return await db.sales.orderBy('id').reverse().toArray();
+}
+
+/** নির্দিষ্ট sale এর ইনভয়েস নম্বর খুঁজে বের করা (PDF আবার বানানোর জন্য) */
+export async function getInvoiceBySaleId(saleId) {
+  return await db.invoices.where('saleId').equals(saleId).first();
 }

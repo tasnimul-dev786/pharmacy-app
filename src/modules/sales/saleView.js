@@ -1,5 +1,7 @@
 import { searchStock } from '../stock/stockRepo.js';
-import { confirmSale, getAllSales } from './salesRepo.js';
+import { confirmSale, getAllSales, getInvoiceBySaleId } from './salesRepo.js';
+import { downloadInvoicePDF } from './invoicePdf.js';
+import { renderShopInfoForm } from '../settings/settingsForm.js';
 import {
   getCart,
   addToCart,
@@ -56,8 +58,11 @@ function renderCartTable(el) {
     msgEl.className = 'form-message';
     try {
       const result = await confirmSale(getCart());
-      msgEl.textContent = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)}`;
+      msgEl.innerHTML = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)} &nbsp; <button id="download-pdf-btn" class="btn-secondary">📄 PDF ডাউনলোড</button>`;
       msgEl.classList.add('success');
+      msgEl.querySelector('#download-pdf-btn').addEventListener('click', () => {
+        downloadInvoicePDF(result, result.invoiceNumber);
+      });
       clearCart();
       renderSalesHistory(document.getElementById('sales-history-container'));
     } catch (err) {
@@ -101,21 +106,36 @@ async function renderSalesHistory(el) {
     .slice(0, 20)
     .map(
       (s) => `
-      <div class="stock-row">
+      <div class="stock-row" data-sale-id="${s.id}">
         <div>
           <strong>${formatDateTime(s.date)}</strong>
           <div class="s-generic">${s.items.map((i) => `${i.brandName} × ${i.qty}`).join(', ')}</div>
         </div>
-        <div>৳${s.total.toFixed(2)}</div>
+        <div class="stock-row-right">
+          <span>৳${s.total.toFixed(2)}</span>
+          <button class="row-btn history-pdf-btn" data-sale-id="${s.id}" title="PDF ডাউনলোড">📄</button>
+        </div>
       </div>`
     )
     .join('');
+
+  el.querySelectorAll('.history-pdf-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const saleId = Number(btn.dataset.saleId);
+      const sale = sales.find((s) => s.id === saleId);
+      const invoice = await getInvoiceBySaleId(saleId);
+      if (sale && invoice) {
+        await downloadInvoicePDF(sale, invoice.invoiceNumber);
+      }
+    });
+  });
 }
 
 /** সেল ভিউ (সার্চ + কার্ট) container এর ভেতরে রেন্ডার করে */
 export function renderSaleView(container) {
   container.innerHTML = `
     <h2>সেল</h2>
+    <div id="shop-info-container" style="max-width:420px;margin-bottom:1rem"></div>
     <div class="form-field autocomplete-wrapper" style="max-width:420px">
       <input type="text" id="sale-search" autocomplete="off" placeholder="মেডিসিন খুঁজুন..." />
       <ul id="sale-suggestions" class="suggestions-list hidden"></ul>
@@ -126,6 +146,8 @@ export function renderSaleView(container) {
     <h3 style="margin-top:2rem">সেলস হিস্ট্রি (সাম্প্রতিক ২০টা)</h3>
     <div id="sales-history-container"></div>
   `;
+
+  renderShopInfoForm(container.querySelector('#shop-info-container'));
 
   const searchInput = container.querySelector('#sale-search');
   const suggestionsList = container.querySelector('#sale-suggestions');

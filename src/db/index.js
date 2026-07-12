@@ -31,6 +31,15 @@ db.version(2).stores({
   invoices: '++id, saleId, invoiceNumber, date, printed',
 });
 
+// ভার্সন ৩ — দোকানের তথ্য (ইনভয়েস হেডারের জন্য) রাখার টেবিল
+db.version(3).stores({
+  medicines: '++id, brandName, genericName, batchNo, expiryDate, quantity, totalPieces',
+  medicinesMaster: '++id, brandName, genericName',
+  sales: '++id, date, customerName, total',
+  invoices: '++id, saleId, invoiceNumber, date, printed',
+  settings: 'key',
+});
+
 // ছোট্ট হেলথ-চেক ফাংশন — DB ঠিকমতো ওপেন হচ্ছে কিনা যাচাই করতে
 export async function checkDbConnection() {
   await db.open();
