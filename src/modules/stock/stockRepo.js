@@ -75,6 +75,28 @@ export async function addMedicineToStock({
   return id;
 }
 
+/**
+ * সেল স্ক্রিনের জন্য — দোকানের নিজস্ব স্টকে (medicinesMaster না) সার্চ করা
+ * শুধু যেগুলো স্টকে আছে (totalPieces > 0) সেগুলোই দেখাবে
+ */
+export async function searchStock(query) {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const results = await db.medicines
+    .where('brandName')
+    .startsWithIgnoreCase(trimmed)
+    .limit(10)
+    .toArray();
+
+  return results.filter((m) => (m.totalPieces ?? m.quantity) > 0);
+}
+
+/** একটা মেডিসিনের বর্তমান স্টক (id দিয়ে) — সেল কনফার্ম করার আগে যাচাইয়ের জন্য */
+export async function getMedicineById(id) {
+  return await db.medicines.get(id);
+}
+
 /** দোকানের বর্তমান স্টক লিস্ট — নতুনগুলো আগে দেখানোর জন্য id অনুযায়ী উল্টো সাজানো */
 export async function getAllStock() {
   return await db.medicines.orderBy('id').reverse().toArray();
