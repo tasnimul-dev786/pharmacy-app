@@ -1,4 +1,5 @@
 import { searchStock } from '../stock/stockRepo.js';
+import { confirmSale } from './salesRepo.js';
 import {
   getCart,
   addToCart,
@@ -7,6 +8,7 @@ import {
   removeFromCart,
   getCartTotal,
   onCartChange,
+  clearCart,
 } from './cart.js';
 
 function debounce(fn, delay) {
@@ -45,8 +47,23 @@ function renderCartTable(el) {
       </tbody>
     </table>
     <div class="cart-total">মোট: ৳${getCartTotal().toFixed(2)}</div>
-    <button id="confirm-sale-btn" class="btn-primary" style="margin-top:0.8rem">সেল কনফার্ম করো</button>
+    <button id="confirm-sale-btn" class="btn-primary" style="margin-top:0.4rem">সেল কনফার্ম করো</button>
   `;
+
+  el.querySelector('#confirm-sale-btn').addEventListener('click', async () => {
+    const msgEl = document.getElementById('sale-message');
+    msgEl.textContent = '';
+    msgEl.className = 'form-message';
+    try {
+      const result = await confirmSale(getCart());
+      msgEl.textContent = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)}`;
+      msgEl.classList.add('success');
+      clearCart();
+    } catch (err) {
+      msgEl.textContent = '✗ ' + err.message;
+      msgEl.classList.add('error');
+    }
+  });
 
   el.querySelectorAll('.cart-qty').forEach((input) => {
     input.addEventListener('input', (e) => {
@@ -75,6 +92,7 @@ export function renderSaleView(container) {
     </div>
     <h3 style="margin-top:1.5rem">কার্ট</h3>
     <div id="cart-container"></div>
+    <div id="sale-message" class="form-message"></div>
   `;
 
   const searchInput = container.querySelector('#sale-search');
