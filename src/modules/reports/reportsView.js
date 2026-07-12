@@ -4,8 +4,14 @@ import { getSalesInRange, getMonthlySales, getTopSellingMedicines } from './repo
 let dailyChartInstance = null;
 let monthlyChartInstance = null;
 
-function toDateInputValue(d) {
+function toInputValue(d) {
   return d.toISOString().slice(0, 10);
+}
+
+function toDDMMYYYY(dateInputValue) {
+  if (!dateInputValue) return '';
+  const [y, m, d] = dateInputValue.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function renderTopSellingTable(el, items) {
@@ -32,59 +38,101 @@ function renderTopSellingTable(el, items) {
   `;
 }
 
-export async function renderReportsView(container) {
+function getPresetRange(preset) {
   const today = new Date();
-  const twoWeeksAgo = new Date();
-  twoWeeksAgo.setDate(today.getDate() - 13);
+  let from, to;
+
+  if (preset === 'today') {
+    from = new Date(today);
+    to = new Date(today);
+  } else if (preset === 'week') {
+    from = new Date(today);
+    from.setDate(today.getDate() - 6);
+    to = new Date(today);
+  } else if (preset === 'month') {
+    from = new Date(today.getFullYear(), today.getMonth(), 1);
+    to = new Date(today);
+  } else if (preset === 'lastMonth') {
+    from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    to = new Date(today.getFullYear(), today.getMonth(), 0);
+  }
+  return { from: toInputValue(from), to: toInputValue(to) };
+}
+
+export async function renderReportsView(container) {
+  const defaultRange = getPresetRange('week');
 
   container.innerHTML = `
     <h2>রিপোর্ট</h2>
 
-    <div style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;max-width:480px">
+    <div class="preset-btns">
+      <button class="btn-secondary preset-btn" data-preset="today">আজ</button>
+      <button class="btn-secondary preset-btn active" data-preset="week">এই সপ্তাহ</button>
+      <button class="btn-secondary preset-btn" data-preset="month">এই মাস</button>
+      <button class="btn-secondary preset-btn" data-preset="lastMonth">গত মাস</button>
+      <button class="btn-secondary preset-btn" data-preset="custom">কাস্টম তারিখ</button>
+    </div>
+
+    <div id="custom-range-fields" class="hidden" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;max-width:480px;margin-top:0.8rem">
       <div class="form-field">
         <label for="from-date">থেকে</label>
-        <input type="date" id="from-date" value="${toDateInputValue(twoWeeksAgo)}" />
+        <input type="date" id="from-date" value="${defaultRange.from}" />
+        <span id="from-date-display" class="s-generic"></span>
       </div>
       <div class="form-field">
         <label for="to-date">পর্যন্ত</label>
-        <input type="date" id="to-date" value="${toDateInputValue(today)}" />
+        <input type="date" id="to-date" value="${defaultRange.to}" />
+        <span id="to-date-display" class="s-generic"></span>
       </div>
-      <button id="apply-range-btn" class="btn-secondary">দেখাও</button>
+      <button id="apply-range-btn" class="btn-primary">দেখাও</button>
     </div>
 
-    <div id="range-total" style="font-weight:600;margin:0.8rem 0;"></div>
+    <div id="range-summary" class="report-summary"></div>
 
-    <h3>সেলস (নির্বাচিত রেঞ্জ)</h3>
     <canvas id="daily-chart" height="200"></canvas>
 
-    <h3 style="margin-top:2rem">মাসিক সেলস (শেষ ৬ মাস)</h3>
-    <canvas id="monthly-chart" height="200"></canvas>
-
-    <h3 style="margin-top:2rem">টপ সেলিং মেডিসিন (নির্বাচিত রেঞ্জ)</h3>
+    <h3 style="margin-top:2rem">কোন ওষুধ সবচেয়ে বেশি বিক্রি হয়েছে</h3>
     <div id="top-selling-container"></div>
+
+    <h3 style="margin-top:2rem">গত ৬ মাসের বিক্রির ধারা</h3>
+    <canvas id="monthly-chart" height="180"></canvas>
   `;
 
   const fromInput = container.querySelector('#from-date');
   const toInput = container.querySelector('#to-date');
-  const rangeTotalEl = container.querySelector('#range-total');
+  const fromDisplay = container.querySelector('#from-date-display');
+  const toDisplay = container.querySelector('#to-date-display');
+  const customFields = container.querySelector('#custom-range-fields');
+  const summaryEl = container.querySelector('#range-summary');
   const dailyCanvas = container.querySelector('#daily-chart');
   const monthlyCanvas = container.querySelector('#monthly-chart');
   const topSellingEl = container.querySelector('#top-selling-container');
 
-  async function refreshRange() {
-    const from = fromInput.value;
-    const to = toInput.value;
-    if (!from || !to || from > to) return;
+  function updateDateDisplays() {
+    fromDisplay.textContent = toDDMMYYYY(fromInput.value);
+    toDisplay.textContent = toDDMMYYYY(toInput.value);
+  }
+  fromInput.addEventListener('change', updateDateDisplays);
+  toInput.addEventListener('change', updateDateDisplays);
+  updateDateDisplays();
 
-    const { labels, values, total } = await getSalesInRange(from, to);
-    rangeTotalEl.textContent = `এই রেঞ্জে মোট সেলস: ৳${total.toFixed(2)}`;
+  async function refreshRange(from, to) {
+    const { labels, values, total, billCount } = await getSalesInRange(from, to);
+
+    const fromLabel = toDDMMYYYY(from);
+    const toLabel = toDDMMYYYY(to);
+    summaryEl.innerHTML = `
+      <div class="report-summary-line">${fromLabel} থেকে ${toLabel} পর্যন্ত</div>
+      <div class="report-summary-big">৳${total.toFixed(2)}</div>
+      <div class="report-summary-line">মোট ${billCount} টা বিল</div>
+    `;
 
     if (dailyChartInstance) dailyChartInstance.destroy();
     dailyChartInstance = new Chart(dailyCanvas, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels,
-        datasets: [{ label: 'সেলস (৳)', data: values, borderColor: '#1a7f4e', backgroundColor: 'rgba(26,127,78,0.1)', fill: true, tension: 0.2 }],
+        datasets: [{ label: 'সেলস (৳)', data: values, backgroundColor: '#1a7f4e' }],
       },
       options: { responsive: true, plugins: { legend: { display: false } } },
     });
@@ -93,9 +141,32 @@ export async function renderReportsView(container) {
     renderTopSellingTable(topSellingEl, topSelling);
   }
 
-  container.querySelector('#apply-range-btn').addEventListener('click', refreshRange);
+  container.querySelectorAll('.preset-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      container.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
 
-  await refreshRange();
+      const preset = btn.dataset.preset;
+      if (preset === 'custom') {
+        customFields.classList.remove('hidden');
+        return;
+      }
+      customFields.classList.add('hidden');
+      const { from, to } = getPresetRange(preset);
+      fromInput.value = from;
+      toInput.value = to;
+      updateDateDisplays();
+      await refreshRange(from, to);
+    });
+  });
+
+  container.querySelector('#apply-range-btn').addEventListener('click', () => {
+    if (fromInput.value && toInput.value && fromInput.value <= toInput.value) {
+      refreshRange(fromInput.value, toInput.value);
+    }
+  });
+
+  await refreshRange(defaultRange.from, defaultRange.to);
 
   const monthly = await getMonthlySales(6);
   if (monthlyChartInstance) monthlyChartInstance.destroy();
@@ -103,7 +174,7 @@ export async function renderReportsView(container) {
     type: 'bar',
     data: {
       labels: monthly.labels,
-      datasets: [{ label: 'সেলস (৳)', data: monthly.values, backgroundColor: '#1a7f4e' }],
+      datasets: [{ label: 'সেলস (৳)', data: monthly.values, backgroundColor: '#7fb99a' }],
     },
     options: { responsive: true, plugins: { legend: { display: false } } },
   });

@@ -346,3 +346,35 @@ body {
   color: #1a7f4e;
   margin-left: 0.5rem;
 }
+
+/* --- রিপোর্ট প্রিসেট ও সামারি --- */
+.preset-btns {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.preset-btn.active {
+  background: #1a7f4e;
+  color: white;
+}
+
+.report-summary {
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  background: #f7f7f7;
+  border-radius: 8px;
+  max-width: 420px;
+}
+
+.report-summary-line {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.report-summary-big {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a7f4e;
+  margin: 0.2rem 0;
+}

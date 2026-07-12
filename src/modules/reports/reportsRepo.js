@@ -52,7 +52,7 @@ export async function getMonthlySales(months = 6) {
   return { labels, values };
 }
 
-/** নির্দিষ্ট তারিখ রেঞ্জের (from, to ইনক্লুসিভ, YYYY-MM-DD ফরম্যাট) দৈনিক সেলস ও টোটাল */
+/** নির্দিষ্ট তারিখ রেঞ্জের (from, to ইনক্লুসিভ, YYYY-MM-DD ফরম্যাট) দৈনিক সেলস, টোটাল ও বিল সংখ্যা */
 export async function getSalesInRange(fromDateStr, toDateStr) {
   const sales = await db.sales.toArray();
   const from = new Date(fromDateStr + 'T00:00:00');
@@ -60,6 +60,7 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
 
   const totalsByDate = {};
   let total = 0;
+  let billCount = 0;
 
   sales.forEach((s) => {
     const d = new Date(s.date);
@@ -67,6 +68,7 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
       const key = dateKey(s.date);
       totalsByDate[key] = (totalsByDate[key] || 0) + s.total;
       total += s.total;
+      billCount += 1;
     }
   });
 
@@ -80,7 +82,7 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  return { labels, values, total };
+  return { labels, values, total, billCount };
 }
 
 /** নির্দিষ্ট তারিখ রেঞ্জের টপ সেলিং মেডিসিন (রেঞ্জ না দিলে সর্বকালের) */
