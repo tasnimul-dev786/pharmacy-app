@@ -35,6 +35,7 @@ export async function addMedicineToStock({
   batchNo = '',
   expiryDate = '',
   unitPrice = null,
+  lowStockThreshold = null,
 }) {
   if (!brandName || !brandName.trim()) {
     throw new Error('মেডিসিনের নাম আবশ্যিক');
@@ -69,6 +70,7 @@ export async function addMedicineToStock({
     batchNo: batchNo.trim(),
     expiryDate: expiryDate || null,
     unitPrice: unitPrice !== null && unitPrice !== '' ? Number(unitPrice) : null,
+    lowStockThreshold: lowStockThreshold !== null && lowStockThreshold !== '' ? Number(lowStockThreshold) : null,
     createdAt: new Date().toISOString(),
   });
 
@@ -113,6 +115,7 @@ export async function updateMedicineInStock(id, {
   batchNo = '',
   expiryDate = '',
   unitPrice = null,
+  lowStockThreshold = null,
 }) {
   if (!brandName || !brandName.trim()) {
     throw new Error('মেডিসিনের নাম আবশ্যিক');
@@ -147,6 +150,7 @@ export async function updateMedicineInStock(id, {
     batchNo: batchNo.trim(),
     expiryDate: expiryDate || null,
     unitPrice: unitPrice !== null && unitPrice !== '' ? Number(unitPrice) : null,
+    lowStockThreshold: lowStockThreshold !== null && lowStockThreshold !== '' ? Number(lowStockThreshold) : null,
   });
 }
 

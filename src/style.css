@@ -328,3 +328,21 @@ body {
   background: #fff6e0;
   color: #a67c00;
 }
+
+/* --- গ্রুপড স্টক ভিউ --- */
+.stock-group {
+  margin-bottom: 0.4rem;
+}
+
+.stock-group-summary {
+  cursor: pointer;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  max-width: 480px;
+}
+
+.badge-total {
+  background: #eef6ef;
+  color: #1a7f4e;
+  margin-left: 0.5rem;
+}

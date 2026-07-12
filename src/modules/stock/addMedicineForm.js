@@ -71,6 +71,11 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
           <label for="unitPrice">ইউনিট প্রাইস (টাকা)</label>
           <input type="number" id="unitPrice" name="unitPrice" min="0" step="0.01" placeholder="যেমন: 5.00" />
         </div>
+
+        <div class="form-field">
+          <label for="lowStockThreshold">লো স্টক থ্রেশহোল্ড (পিস, খালি রাখলে গ্লোবাল ডিফল্ট ব্যবহার হবে)</label>
+          <input type="number" id="lowStockThreshold" name="lowStockThreshold" min="0" placeholder="যেমন: 20" />
+        </div>
       </details>
 
       <div id="form-message" class="form-message"></div>
@@ -95,6 +100,7 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
   const batchInput = container.querySelector('#batchNo');
   const expiryInput = container.querySelector('#expiryDate');
   const priceInput = container.querySelector('#unitPrice');
+  const lowStockThresholdInput = container.querySelector('#lowStockThreshold');
   const piecesPerStripInput = container.querySelector('#piecesPerStrip');
   const stripsPerBoxInput = container.querySelector('#stripsPerBox');
 
@@ -107,6 +113,7 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
     batchInput.value = editRecord.batchNo || '';
     expiryInput.value = editRecord.expiryDate || '';
     priceInput.value = editRecord.unitPrice ?? '';
+    lowStockThresholdInput.value = editRecord.lowStockThreshold ?? '';
     piecesPerStripInput.value = editRecord.piecesPerStrip || '';
     stripsPerBoxInput.value = editRecord.stripsPerBox || '';
   }
@@ -180,6 +187,7 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
           piecesPerStripInput.value = lastEntry.piecesPerStrip || '';
           stripsPerBoxInput.value = lastEntry.stripsPerBox || '';
           priceInput.value = lastEntry.unitPrice ?? '';
+          lowStockThresholdInput.value = lastEntry.lowStockThreshold ?? '';
           updateConversionFieldsVisibility();
           messageEl.textContent = 'ℹ️ আগের এন্ট্রি থেকে ইউনিট ও দাম অটো-ফিল করা হয়েছে, চাইলে বদলে দাও';
           messageEl.className = 'form-message';
@@ -235,6 +243,7 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
       batchNo: formData.get('batchNo'),
       expiryDate: formData.get('expiryDate'),
       unitPrice: formData.get('unitPrice'),
+      lowStockThreshold: formData.get('lowStockThreshold'),
     };
 
     try {

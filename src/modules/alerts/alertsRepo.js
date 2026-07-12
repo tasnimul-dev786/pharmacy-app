@@ -16,11 +16,14 @@ export async function saveAlertSettings(settings) {
   await db.settings.put({ key: SETTINGS_KEY, value: settings });
 }
 
-/** যেসব মেডিসিন থ্রেশহোল্ডের নিচে (totalPieces ভিত্তিতে) */
-export async function getLowStockItems(threshold) {
+/** যেসব মেডিসিন থ্রেশহোল্ডের নিচে (প্রতিটার নিজস্ব lowStockThreshold থাকলে সেটা, নাহলে গ্লোবাল ডিফল্ট) */
+export async function getLowStockItems(globalThreshold) {
   const all = await db.medicines.toArray();
   return all
-    .filter((m) => (m.totalPieces ?? m.quantity) <= threshold)
+    .filter((m) => {
+      const threshold = m.lowStockThreshold ?? globalThreshold;
+      return (m.totalPieces ?? m.quantity) <= threshold;
+    })
     .sort((a, b) => (a.totalPieces ?? a.quantity) - (b.totalPieces ?? b.quantity));
 }
 
