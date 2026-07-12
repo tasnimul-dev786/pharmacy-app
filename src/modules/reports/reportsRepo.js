@@ -52,11 +52,48 @@ export async function getMonthlySales(months = 6) {
   return { labels, values };
 }
 
-/** সর্বকালের টপ সেলিং মেডিসিন (qty ও revenue ভিত্তিতে) */
-export async function getTopSellingMedicines(limit = 10) {
+/** নির্দিষ্ট তারিখ রেঞ্জের (from, to ইনক্লুসিভ, YYYY-MM-DD ফরম্যাট) দৈনিক সেলস ও টোটাল */
+export async function getSalesInRange(fromDateStr, toDateStr) {
   const sales = await db.sales.toArray();
+  const from = new Date(fromDateStr + 'T00:00:00');
+  const to = new Date(toDateStr + 'T23:59:59');
+
+  const totalsByDate = {};
+  let total = 0;
+
+  sales.forEach((s) => {
+    const d = new Date(s.date);
+    if (d >= from && d <= to) {
+      const key = dateKey(s.date);
+      totalsByDate[key] = (totalsByDate[key] || 0) + s.total;
+      total += s.total;
+    }
+  });
+
+  const labels = [];
+  const values = [];
+  const cursor = new Date(from);
+  while (cursor <= to) {
+    const key = cursor.toISOString().slice(0, 10);
+    labels.push(`${cursor.getDate()}/${cursor.getMonth() + 1}`);
+    values.push(totalsByDate[key] || 0);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return { labels, values, total };
+}
+
+/** নির্দিষ্ট তারিখ রেঞ্জের টপ সেলিং মেডিসিন (রেঞ্জ না দিলে সর্বকালের) */
+export async function getTopSellingMedicines(limit = 10, fromDateStr = null, toDateStr = null) {
+  const sales = await db.sales.toArray();
+  const from = fromDateStr ? new Date(fromDateStr + 'T00:00:00') : null;
+  const to = toDateStr ? new Date(toDateStr + 'T23:59:59') : null;
+
   const agg = {};
   sales.forEach((s) => {
+    const d = new Date(s.date);
+    if (from && d < from) return;
+    if (to && d > to) return;
     s.items.forEach((i) => {
       const key = i.brandName;
       if (!agg[key]) agg[key] = { brandName: i.brandName, genericName: i.genericName, qty: 0, revenue: 0 };
