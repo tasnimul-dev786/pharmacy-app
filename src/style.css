@@ -310,3 +310,21 @@ body {
     margin: 4mm;
   }
 }
+
+/* --- অ্যালার্ট ব্যাজ --- */
+.badge {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.badge-danger {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.badge-warning {
+  background: #fff6e0;
+  color: #a67c00;
+}
