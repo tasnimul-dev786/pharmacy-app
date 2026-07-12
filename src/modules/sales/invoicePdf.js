@@ -28,7 +28,7 @@ export async function downloadInvoicePDF(sale, invoiceNumber) {
   let y = 20;
 
   doc.setFontSize(16);
-  doc.text(shop.shopName || 'ফার্মেসি', pageWidth / 2, y, { align: 'center' });
+  doc.text(shop.shopName || 'Pharmacy', pageWidth / 2, y, { align: 'center' });
   y += 7;
 
   doc.setFontSize(10);
@@ -37,7 +37,7 @@ export async function downloadInvoicePDF(sale, invoiceNumber) {
     y += 5;
   }
   if (shop.phone) {
-    doc.text(`ফোন: ${shop.phone}`, pageWidth / 2, y, { align: 'center' });
+    doc.text(`Phone: ${shop.phone}`, pageWidth / 2, y, { align: 'center' });
     y += 5;
   }
 
@@ -82,7 +82,7 @@ export async function downloadInvoicePDF(sale, invoiceNumber) {
 
   y += 15;
   doc.setFontSize(9);
-  doc.text('ধন্যবাদ', pageWidth / 2, y, { align: 'center' });
+  doc.text('Thank you', pageWidth / 2, y, { align: 'center' });
 
   doc.save(`${invoiceNumber}.pdf`);
 }
