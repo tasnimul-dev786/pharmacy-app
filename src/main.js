@@ -3,6 +3,7 @@ import { seedMasterListIfEmpty } from './db/seedMasterList.js';
 import { renderStockView } from './modules/stock/stockView.js';
 import { renderSaleView } from './modules/sales/saleView.js';
 import { renderAlertsView } from './modules/alerts/alertsView.js';
+import { renderReportsView } from './modules/reports/reportsView.js';
 
 const contentEl = document.getElementById('app-content');
 
@@ -11,7 +12,7 @@ function renderNav(activeTab, onSwitch) {
     { key: 'sale', label: 'সেল' },
     { key: 'stock', label: 'স্টক' },
     { key: 'alert', label: 'অ্যালার্ট' },
-    { key: 'report', label: 'রিপোর্ট', disabled: true },
+    { key: 'report', label: 'রিপোর্ট' },
   ];
   const nav = document.createElement('nav');
   nav.className = 'bottom-nav';
@@ -40,6 +41,8 @@ async function showTab(key) {
     await renderStockView(viewEl);
   } else if (key === 'alert') {
     await renderAlertsView(viewEl);
+  } else if (key === 'report') {
+    await renderReportsView(viewEl);
   }
 }
 
