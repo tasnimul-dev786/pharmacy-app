@@ -1,8 +1,4 @@
-import Chart from 'chart.js/auto';
-import { getSalesInRange, getMonthlySales, getTopSellingMedicines } from './reportsRepo.js';
-
-let dailyChartInstance = null;
-let monthlyChartInstance = null;
+import { getSalesInRange, getPeriodComparison, getTopSellingMedicines } from './reportsRepo.js';
 
 function toInputValue(d) {
   return d.toISOString().slice(0, 10);
@@ -12,6 +8,12 @@ function toDDMMYYYY(dateInputValue) {
   if (!dateInputValue) return '';
   const [y, m, d] = dateInputValue.split('-');
   return `${d}/${m}/${y}`;
+}
+
+function formatDateReadable(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const monthNames = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্ট', 'অক্টো', 'নভে', 'ডিসে'];
+  return `${d.getDate()} ${monthNames[d.getMonth()]}`;
 }
 
 function renderTopSellingTable(el, items) {
@@ -89,13 +91,8 @@ export async function renderReportsView(container) {
 
     <div id="range-summary" class="report-summary"></div>
 
-    <canvas id="daily-chart" height="200"></canvas>
-
-    <h3 style="margin-top:2rem">কোন ওষুধ সবচেয়ে বেশি বিক্রি হয়েছে</h3>
+    <h3 style="margin-top:1.5rem">কোন ওষুধ সবচেয়ে বেশি বিক্রি হয়েছে</h3>
     <div id="top-selling-container"></div>
-
-    <h3 style="margin-top:2rem">গত ৬ মাসের বিক্রির ধারা</h3>
-    <canvas id="monthly-chart" height="180"></canvas>
   `;
 
   const fromInput = container.querySelector('#from-date');
@@ -104,8 +101,6 @@ export async function renderReportsView(container) {
   const toDisplay = container.querySelector('#to-date-display');
   const customFields = container.querySelector('#custom-range-fields');
   const summaryEl = container.querySelector('#range-summary');
-  const dailyCanvas = container.querySelector('#daily-chart');
-  const monthlyCanvas = container.querySelector('#monthly-chart');
   const topSellingEl = container.querySelector('#top-selling-container');
 
   function updateDateDisplays() {
@@ -117,25 +112,33 @@ export async function renderReportsView(container) {
   updateDateDisplays();
 
   async function refreshRange(from, to) {
-    const { labels, values, total, billCount } = await getSalesInRange(from, to);
+    const { total, billCount, bestDay, numDays } = await getSalesInRange(from, to);
+    const { prevTotal } = await getPeriodComparison(from, to);
 
     const fromLabel = toDDMMYYYY(from);
     const toLabel = toDDMMYYYY(to);
+    const avgPerDay = numDays > 0 ? total / numDays : 0;
+
+    let comparisonHtml = '';
+    if (prevTotal > 0) {
+      const changePercent = ((total - prevTotal) / prevTotal) * 100;
+      const up = changePercent >= 0;
+      comparisonHtml = `<div class="report-summary-line ${up ? 'trend-up' : 'trend-down'}">
+        আগের একই দৈর্ঘ্যের সময়ের তুলনায় ${up ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(0)}%
+      </div>`;
+    }
+
+    const bestDayHtml = bestDay
+      ? `<div class="report-summary-line">সবচেয়ে বেশি বিক্রি: ${formatDateReadable(bestDay.date)} (৳${bestDay.amount.toFixed(2)})</div>`
+      : '';
+
     summaryEl.innerHTML = `
       <div class="report-summary-line">${fromLabel} থেকে ${toLabel} পর্যন্ত</div>
       <div class="report-summary-big">৳${total.toFixed(2)}</div>
-      <div class="report-summary-line">মোট ${billCount} টা বিল</div>
+      <div class="report-summary-line">মোট ${billCount} টা বিল · গড়ে দৈনিক ৳${avgPerDay.toFixed(2)}</div>
+      ${comparisonHtml}
+      ${bestDayHtml}
     `;
-
-    if (dailyChartInstance) dailyChartInstance.destroy();
-    dailyChartInstance = new Chart(dailyCanvas, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{ label: 'সেলস (৳)', data: values, backgroundColor: '#1a7f4e' }],
-      },
-      options: { responsive: true, plugins: { legend: { display: false } } },
-    });
 
     const topSelling = await getTopSellingMedicines(10, from, to);
     renderTopSellingTable(topSellingEl, topSelling);
@@ -167,15 +170,4 @@ export async function renderReportsView(container) {
   });
 
   await refreshRange(defaultRange.from, defaultRange.to);
-
-  const monthly = await getMonthlySales(6);
-  if (monthlyChartInstance) monthlyChartInstance.destroy();
-  monthlyChartInstance = new Chart(monthlyCanvas, {
-    type: 'bar',
-    data: {
-      labels: monthly.labels,
-      datasets: [{ label: 'সেলস (৳)', data: monthly.values, backgroundColor: '#7fb99a' }],
-    },
-    options: { responsive: true, plugins: { legend: { display: false } } },
-  });
 }

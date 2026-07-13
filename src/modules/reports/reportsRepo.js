@@ -52,7 +52,7 @@ export async function getMonthlySales(months = 6) {
   return { labels, values };
 }
 
-/** নির্দিষ্ট তারিখ রেঞ্জের (from, to ইনক্লুসিভ, YYYY-MM-DD ফরম্যাট) দৈনিক সেলস, টোটাল ও বিল সংখ্যা */
+/** নির্দিষ্ট তারিখ রেঞ্জের (from, to ইনক্লুসিভ, YYYY-MM-DD ফরম্যাট) দৈনিক সেলস, টোটাল, বিল সংখ্যা ও সবচেয়ে ভালো দিন */
 export async function getSalesInRange(fromDateStr, toDateStr) {
   const sales = await db.sales.toArray();
   const from = new Date(fromDateStr + 'T00:00:00');
@@ -72,17 +72,37 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
     }
   });
 
-  const labels = [];
-  const values = [];
-  const cursor = new Date(from);
-  while (cursor <= to) {
-    const key = cursor.toISOString().slice(0, 10);
-    labels.push(`${cursor.getDate()}/${cursor.getMonth() + 1}`);
-    values.push(totalsByDate[key] || 0);
-    cursor.setDate(cursor.getDate() + 1);
-  }
+  let bestDay = null;
+  Object.entries(totalsByDate).forEach(([key, amount]) => {
+    if (!bestDay || amount > bestDay.amount) bestDay = { date: key, amount };
+  });
 
-  return { labels, values, total, billCount };
+  const numDays = Math.round((to - from) / (1000 * 60 * 60 * 24)) + 1;
+
+  return { total, billCount, bestDay, numDays };
+}
+
+/** আগের সমান-দৈর্ঘ্যের পিরিয়ডের সাথে তুলনা — কত % বাড়ল/কমল */
+export async function getPeriodComparison(fromDateStr, toDateStr) {
+  const from = new Date(fromDateStr + 'T00:00:00');
+  const to = new Date(toDateStr + 'T23:59:59');
+  const numDays = Math.round((to - from) / (1000 * 60 * 60 * 24)) + 1;
+
+  const prevTo = new Date(from);
+  prevTo.setDate(prevTo.getDate() - 1);
+  const prevFrom = new Date(prevTo);
+  prevFrom.setDate(prevFrom.getDate() - numDays + 1);
+
+  const sales = await db.sales.toArray();
+  let prevTotal = 0;
+  sales.forEach((s) => {
+    const d = new Date(s.date);
+    if (d >= new Date(prevFrom.toISOString().slice(0, 10) + 'T00:00:00') && d <= new Date(prevTo.toISOString().slice(0, 10) + 'T23:59:59')) {
+      prevTotal += s.total;
+    }
+  });
+
+  return { prevTotal };
 }
 
 /** নির্দিষ্ট তারিখ রেঞ্জের টপ সেলিং মেডিসিন (রেঞ্জ না দিলে সর্বকালের) */

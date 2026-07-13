@@ -378,3 +378,6 @@ body {
   color: #1a7f4e;
   margin: 0.2rem 0;
 }
+
+.trend-up { color: #1a7f4e; font-weight: 600; }
+.trend-down { color: #c0392b; font-weight: 600; }
