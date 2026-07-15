@@ -21,12 +21,12 @@ function filterStock(stock, query) {
   );
 }
 
-function renderBatchRow(m) {
+function batchRowHtml(m) {
   const unitLabel = unitLabels[m.unit] || 'পিস';
   const showTotalPieces = m.unit && m.unit !== 'piece' && m.totalPieces;
   const addedDate = formatDate(m.createdAt);
   return `
-    <div class="stock-row" data-id="${m.id}" style="padding-left:1rem;border-left:2px solid #eee;">
+    <div class="stock-row" data-id="${m.id}">
       <div>
         ${m.batchNo ? `<span class="s-generic">ব্যাচ: ${m.batchNo}</span>` : ''}
         ${m.expiryDate ? `<span class="s-generic"> · মেয়াদ: ${m.expiryDate}</span>` : ''}
@@ -43,38 +43,105 @@ function renderBatchRow(m) {
     </div>`;
 }
 
-function renderStockRows(listEl, stock) {
+/** ব্যাচ হিস্ট্রি মোডাল খোলা — একটা প্রোডাক্টের সব ব্যাচ দেখাতে */
+function openBatchModal(group, { onChanged }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <strong>${group.brandName}</strong>
+          ${group.genericName ? `<span class="s-generic"> · ${group.genericName}</span>` : ''}
+        </div>
+        <button class="modal-close-btn" title="বন্ধ করো">✕</button>
+      </div>
+      <div class="batch-list">
+        ${group.batches.map(batchRowHtml).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  function close() {
+    overlay.remove();
+  }
+
+  overlay.querySelector('.modal-close-btn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  overlay.querySelectorAll('.edit-btn, .delete-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      close();
+    });
+  });
+
+  return { overlay, close };
+}
+
+function renderStockRows(listEl, stock, handlers) {
   if (stock.length === 0) {
     listEl.innerHTML = '<p class="empty-note">কোনো মেডিসিন পাওয়া যায়নি।</p>';
     return;
   }
   const groups = aggregateByProduct(stock, { filterAvailable: false });
+
   listEl.innerHTML = groups
     .map((g) => {
-      const multiBatch = g.batches.length > 1;
-      const batchesHtml = g.batches.map(renderBatchRow).join('');
-      if (!multiBatch) {
-        // একটাই ব্যাচ হলে আলাদা করে গ্রুপ হেডার না দেখিয়ে সরাসরি রো দেখানো
-        return batchesHtml;
+      if (g.batches.length === 1) {
+        return batchRowHtml(g.batches[0]);
       }
       return `
-        <details class="stock-group">
-          <summary class="stock-group-summary">
+        <div class="stock-summary-row" data-key="${g.productKey}">
+          <div>
             <strong>${g.brandName}</strong>
             ${g.genericName ? `<span class="s-generic"> · ${g.genericName}</span>` : ''}
-            <span class="badge badge-total">মোট ${g.totalPieces} পিস · ${g.batches.length} ব্যাচ</span>
-          </summary>
-          ${batchesHtml}
-        </details>`;
+          </div>
+          <span class="badge badge-total">মোট ${g.totalPieces} পিস · ${g.batches.length} ব্যাচ</span>
+        </div>`;
     })
     .join('');
+
+  // মাল্টি-ব্যাচ সামারি রো-তে ক্লিক করলে মোডাল খুলবে
+  listEl.querySelectorAll('.stock-summary-row').forEach((row) => {
+    row.addEventListener('click', () => {
+      const group = groups.find((g) => g.productKey === row.dataset.key);
+      if (!group) return;
+      const { close } = openBatchModal(group, {});
+      const modalBox = document.querySelector('.modal-overlay .modal-box');
+      wireEditDelete(modalBox, handlers, close);
+    });
+  });
+
+  wireEditDelete(listEl, handlers);
+}
+
+function wireEditDelete(scopeEl, handlers, afterActionClose) {
+  scopeEl.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.id);
+      handlers.onEdit(id);
+      if (afterActionClose) afterActionClose();
+    });
+  });
+  scopeEl.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.id);
+      handlers.onDelete(id);
+      if (afterActionClose) afterActionClose();
+    });
+  });
 }
 
 let currentStock = [];
 
-async function renderStockList(listEl, searchQuery = '') {
+async function renderStockList(listEl, searchQuery, handlers) {
   currentStock = await getAllStock();
-  renderStockRows(listEl, filterStock(currentStock, searchQuery));
+  renderStockRows(listEl, filterStock(currentStock, searchQuery), handlers);
 }
 
 /** স্টক ভিউ (ফর্ম + লিস্ট + সার্চ + এডিট/ডিলিট) container এর ভেতরে রেন্ডার করে */
@@ -94,16 +161,10 @@ export async function renderStockView(container) {
   const listContainer = container.querySelector('#stock-list-container');
   const searchInput = container.querySelector('#stock-search');
 
-  await renderStockList(listContainer);
-
-  searchInput.addEventListener('input', (e) => {
-    renderStockRows(listContainer, filterStock(currentStock, e.target.value));
-  });
-
   function showAddForm() {
     formTitleEl.textContent = 'নতুন মেডিসিন যোগ করো';
     renderAddMedicineForm(formContainer, async () => {
-      await renderStockList(listContainer, searchInput.value);
+      await renderStockList(listContainer, searchInput.value, handlers);
     });
   }
 
@@ -112,7 +173,7 @@ export async function renderStockView(container) {
     renderAddMedicineForm(
       formContainer,
       async () => {
-        await renderStockList(listContainer, searchInput.value);
+        await renderStockList(listContainer, searchInput.value, handlers);
         showAddForm();
       },
       record
@@ -120,27 +181,27 @@ export async function renderStockView(container) {
     formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  listContainer.addEventListener('click', async (e) => {
-    const editBtn = e.target.closest('.edit-btn');
-    const deleteBtn = e.target.closest('.delete-btn');
-
-    if (editBtn) {
-      const id = Number(editBtn.dataset.id);
+  const handlers = {
+    onEdit: (id) => {
       const record = currentStock.find((m) => m.id === id);
       if (record) showEditForm(record);
-    }
-
-    if (deleteBtn) {
-      const id = Number(deleteBtn.dataset.id);
+    },
+    onDelete: async (id) => {
       const record = currentStock.find((m) => m.id === id);
       const confirmed = window.confirm(
         `"${record?.brandName || 'এই মেডিসিন'}" ব্যাচ স্টক থেকে ডিলিট করতে চাও? এটা আর ফেরত আনা যাবে না।`
       );
       if (confirmed) {
         await deleteMedicineFromStock(id);
-        await renderStockList(listContainer, searchInput.value);
+        await renderStockList(listContainer, searchInput.value, handlers);
       }
-    }
+    },
+  };
+
+  await renderStockList(listContainer, '', handlers);
+
+  searchInput.addEventListener('input', (e) => {
+    renderStockRows(listContainer, filterStock(currentStock, e.target.value), handlers);
   });
 
   showAddForm();
