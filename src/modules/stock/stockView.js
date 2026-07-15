@@ -21,21 +21,30 @@ function filterStock(stock, query) {
   );
 }
 
-function batchRowHtml(m) {
+function batchRowHtml(m, { showName = false } = {}) {
   const unitLabel = unitLabels[m.unit] || 'পিস';
-  const showTotalPieces = m.unit && m.unit !== 'piece' && m.totalPieces;
+  const purchasedUnitLabel = unitLabels[m.purchasedUnit] || unitLabel;
   const addedDate = formatDate(m.createdAt);
+  const showCurrentPieces = m.unit && m.unit !== 'piece' && m.totalPieces;
+
+  const purchasedLine =
+    m.purchasedQuantity != null
+      ? `${m.purchasedQuantity} ${purchasedUnitLabel}${m.purchasedTotalPieces && m.purchasedUnit !== 'piece' ? ` (${m.purchasedTotalPieces} পিস)` : ''}`
+      : `${m.quantity} ${unitLabel}`;
+
   return `
     <div class="stock-row" data-id="${m.id}">
       <div>
-        ${m.batchNo ? `<span class="s-generic">ব্যাচ: ${m.batchNo}</span>` : ''}
+        ${showName ? `<strong>${m.brandName}</strong>${m.genericName ? `<span class="s-generic"> · ${m.genericName}</span>` : ''}<br/>` : ''}
+        <span class="s-generic">কেনা হয়েছিল: ${purchasedLine}</span>
+        ${m.batchNo ? `<span class="s-generic"> · ব্যাচ: ${m.batchNo}</span>` : ''}
         ${m.expiryDate ? `<span class="s-generic"> · মেয়াদ: ${m.expiryDate}</span>` : ''}
         ${addedDate ? `<div class="s-date">যোগ হয়েছে: ${addedDate}</div>` : ''}
       </div>
       <div class="stock-row-right">
         <span>
-          ${m.quantity} ${unitLabel}
-          ${showTotalPieces ? `<span class="s-generic"> (${m.totalPieces} পিস)</span>` : ''}
+          বর্তমানে: ${m.quantity} ${unitLabel}
+          ${showCurrentPieces ? `<span class="s-generic"> (${m.totalPieces} পিস)</span>` : ''}
         </span>
         <button class="row-btn edit-btn" data-id="${m.id}" title="এডিট">✏️</button>
         <button class="row-btn delete-btn" data-id="${m.id}" title="ডিলিট">🗑️</button>
@@ -91,7 +100,7 @@ function renderStockRows(listEl, stock, handlers) {
   listEl.innerHTML = groups
     .map((g) => {
       if (g.batches.length === 1) {
-        return batchRowHtml(g.batches[0]);
+        return batchRowHtml(g.batches[0], { showName: true });
       }
       return `
         <div class="stock-summary-row" data-key="${g.productKey}">
