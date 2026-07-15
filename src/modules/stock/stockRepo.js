@@ -1,6 +1,18 @@
 import { db } from '../../db/index.js';
 
 /**
+ * ব্র্যান্ড+জেনেরিক নাম থেকে একটা normalized "প্রোডাক্ট কি" বানায় — গ্রুপিং/অ্যাগ্রিগেশনের জন্য।
+ * এক্সট্রা স্পেস, কেস (বড়/ছোট হাতের অক্ষর) উপেক্ষা করে, যাতে "Napa · 500mg" আর
+ * "Napa · 500 mg" (স্পেসের ফারাক) আলাদা প্রোডাক্ট হিসেবে গণ্য না হয়।
+ */
+export function normalizeKey(brandName, genericName) {
+  // অক্ষর ও সংখ্যা ছাড়া সব (স্পেস, ·, কমা, হাইফেন ইত্যাদি) বাদ দেওয়া হয়,
+  // যাতে "Paracetamol · 500mg" আর "Paracetamol 500 mg" একই প্রোডাক্ট হিসেবে গণ্য হয়
+  const norm = (s) => (s || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  return `${norm(brandName)}|${norm(genericName)}`;
+}
+
+/**
  * অটোকমপ্লিট সাজেশনের জন্য — medicinesMaster টেবিলে brandName দিয়ে সার্চ
  * শুরুর অক্ষর দিয়ে ম্যাচ করে (case-insensitive), সর্বোচ্চ ১০টা রেজাল্ট
  */
@@ -78,20 +90,57 @@ export async function addMedicineToStock({
 }
 
 /**
- * সেল স্ক্রিনের জন্য — দোকানের নিজস্ব স্টকে (medicinesMaster না) সার্চ করা
- * শুধু যেগুলো স্টকে আছে (totalPieces > 0) সেগুলোই দেখাবে
+ * সেল স্ক্রিনের জন্য — দোকানের নিজস্ব স্টকে সার্চ করা, একই প্রোডাক্টের সব ব্যাচ
+ * একসাথে যোগ করে একটাই রেজাল্ট হিসেবে দেখানো হয় (কাস্টমার "কোন ব্যাচ" জানতে চায় না,
+ * সেটা confirmSale এর সময় FEFO অনুযায়ী নিজে থেকে ঠিক হয়)।
  */
 export async function searchStock(query) {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const results = await db.medicines
+  const matches = await db.medicines
     .where('brandName')
     .startsWithIgnoreCase(trimmed)
-    .limit(10)
     .toArray();
 
-  return results.filter((m) => (m.totalPieces ?? m.quantity) > 0);
+  return aggregateByProduct(matches).slice(0, 10);
+}
+
+/** ব্যাচ-লেভেল রেকর্ডের লিস্ট থেকে প্রোডাক্ট-লেভেল অ্যাগ্রিগেট বানানো (helper, স্টক/অ্যালার্ট/সেল সব জায়গায় ব্যবহারযোগ্য) */
+export function aggregateByProduct(batchRecords, { filterAvailable = true } = {}) {
+  const groups = new Map();
+  for (const m of batchRecords) {
+    const key = normalizeKey(m.brandName, m.genericName);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        productKey: key,
+        brandName: m.brandName,
+        genericName: m.genericName,
+        batches: [],
+        totalPieces: 0,
+      });
+    }
+    const g = groups.get(key);
+    g.batches.push(m);
+    g.totalPieces += m.totalPieces ?? m.quantity;
+  }
+
+  let list = Array.from(groups.values());
+  if (filterAvailable) {
+    list = list.filter((g) => g.totalPieces > 0);
+  }
+
+  return list
+    .map((g) => {
+      const latest = [...g.batches].sort((a, b) => b.id - a.id)[0];
+      return {
+        ...g,
+        piecesPerStrip: latest.piecesPerStrip || 1,
+        unitPrice: latest.unitPrice ?? 0,
+        lowStockThreshold: g.batches.find((b) => b.lowStockThreshold != null)?.lowStockThreshold ?? null,
+      };
+    })
+    .sort((a, b) => Math.max(...b.batches.map((x) => x.id)) - Math.max(...a.batches.map((x) => x.id)));
 }
 
 /** একটা মেডিসিনের বর্তমান স্টক (id দিয়ে) — সেল কনফার্ম করার আগে যাচাইয়ের জন্য */

@@ -1,5 +1,5 @@
 import { renderAddMedicineForm } from './addMedicineForm.js';
-import { getAllStock, deleteMedicineFromStock } from './stockRepo.js';
+import { getAllStock, deleteMedicineFromStock, aggregateByProduct } from './stockRepo.js';
 
 const unitLabels = { piece: 'পিস', strip: 'স্ট্রিপ', box: 'বক্স' };
 
@@ -19,22 +19,6 @@ function filterStock(stock, query) {
       m.brandName.toLowerCase().includes(q) ||
       (m.genericName && m.genericName.toLowerCase().includes(q))
   );
-}
-
-/** brandName+genericName অনুযায়ী গ্রুপ করা — একই প্রোডাক্টের একাধিক ব্যাচ একসাথে দেখানোর জন্য */
-function groupStock(stock) {
-  const groups = new Map();
-  for (const m of stock) {
-    const key = `${m.brandName}|${m.genericName || ''}`;
-    if (!groups.has(key)) {
-      groups.set(key, { brandName: m.brandName, genericName: m.genericName, batches: [], totalPieces: 0 });
-    }
-    const g = groups.get(key);
-    g.batches.push(m);
-    g.totalPieces += m.totalPieces ?? m.quantity;
-  }
-  // নতুন batch যোগ হওয়ার ভিত্তিতে গ্রুপ সাজানো (সবচেয়ে সাম্প্রতিক আগে)
-  return Array.from(groups.values()).sort((a, b) => Math.max(...b.batches.map((x) => x.id)) - Math.max(...a.batches.map((x) => x.id)));
 }
 
 function renderBatchRow(m) {
@@ -64,7 +48,7 @@ function renderStockRows(listEl, stock) {
     listEl.innerHTML = '<p class="empty-note">কোনো মেডিসিন পাওয়া যায়নি।</p>';
     return;
   }
-  const groups = groupStock(stock);
+  const groups = aggregateByProduct(stock, { filterAvailable: false });
   listEl.innerHTML = groups
     .map((g) => {
       const multiBatch = g.batches.length > 1;
