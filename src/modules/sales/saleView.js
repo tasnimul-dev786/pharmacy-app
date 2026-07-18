@@ -7,10 +7,14 @@ import {
   getCart,
   addToCart,
   removeFromCart,
+  updateCartItemUnit,
   getCartTotal,
   onCartChange,
   clearCart,
+  qtyInPieces,
 } from './cart.js';
+
+const unitOptionLabels = { piece: 'পিস', strip: 'স্ট্রিপ' };
 
 function debounce(fn, delay) {
   let timer;
@@ -30,18 +34,24 @@ function renderCartTable(el) {
   el.innerHTML = `
     <table class="cart-table">
       <thead>
-        <tr><th>নাম</th><th>কোয়ান্টিটি</th><th>দাম</th><th>সাবটোটাল</th><th></th></tr>
+        <tr><th>নাম</th><th>কোয়ান্টিটি</th><th>একক</th><th>দাম</th><th>সাবটোটাল</th><th></th></tr>
       </thead>
       <tbody>
         ${cart
           .map(
             (c) => `
-          <tr data-id="${c.medicineId}">
+          <tr data-key="${c.productKey}">
             <td>${c.brandName}${c.genericName ? `<div class="s-generic">${c.genericName}</div>` : ''}</td>
-            <td><input type="number" class="cart-qty" min="1" value="${c.qty}" data-id="${c.medicineId}" /></td>
-            <td><input type="number" class="cart-price" min="0" step="0.01" value="${c.unitPrice}" data-id="${c.medicineId}" /></td>
-            <td class="cart-subtotal">৳${(c.qty * c.unitPrice).toFixed(2)}</td>
-            <td><button class="row-btn cart-remove-btn" data-id="${c.medicineId}" title="বাদ দাও">🗑️</button></td>
+            <td><input type="number" class="cart-qty" min="1" value="${c.saleQty}" data-key="${c.productKey}" placeholder="সংখ্যা" /></td>
+            <td>
+              <select class="cart-unit" data-key="${c.productKey}">
+                <option value="piece" ${c.saleUnit === 'piece' ? 'selected' : ''}>পিস</option>
+                <option value="strip" ${c.saleUnit === 'strip' ? 'selected' : ''}>স্ট্রিপ</option>
+              </select>
+            </td>
+            <td><input type="number" class="cart-price" min="0" step="0.01" value="${c.unitPrice}" data-key="${c.productKey}" /></td>
+            <td class="cart-subtotal">৳${((Number(c.saleQty) || 0) * c.unitPrice).toFixed(2)}</td>
+            <td><button class="row-btn cart-remove-btn" data-key="${c.productKey}" title="বাদ দাও">🗑️</button></td>
           </tr>`
           )
           .join('')}
@@ -73,14 +83,13 @@ function renderCartTable(el) {
     }
   });
 
-  // --- কোয়ান্টিটি/দাম ইনপুট — সরাসরি ডাটা মিউটেট করা হয় (notify/re-render ছাড়া)
-  // যাতে টাইপ করার সময় ইনপুট বক্স থেকে ফোকাস হারিয়ে না যায় ---
-  function updateRowDisplay(medicineId) {
-    const item = cart.find((c) => c.medicineId === medicineId);
+  // --- কোয়ান্টিটি/দাম ইনপুট — সরাসরি ডাটা মিউটেট, ফোকাস হারানো এড়াতে ফুল re-render না করে ---
+  function updateRowDisplay(productKey) {
+    const item = cart.find((c) => c.productKey === productKey);
     if (!item) return;
-    const row = el.querySelector(`tr[data-id="${medicineId}"]`);
+    const row = el.querySelector(`tr[data-key="${productKey}"]`);
     if (row) {
-      row.querySelector('.cart-subtotal').textContent = `৳${(item.qty * item.unitPrice).toFixed(2)}`;
+      row.querySelector('.cart-subtotal').textContent = `৳${((Number(item.saleQty) || 0) * item.unitPrice).toFixed(2)}`;
     }
     const totalEl = el.querySelector('.cart-total');
     if (totalEl) totalEl.textContent = `মোট: ৳${getCartTotal().toFixed(2)}`;
@@ -88,49 +97,31 @@ function renderCartTable(el) {
 
   el.querySelectorAll('.cart-qty').forEach((input) => {
     input.addEventListener('input', (e) => {
-      const id = Number(e.target.dataset.id);
-      const item = cart.find((c) => c.medicineId === id);
-      if (item) {
-        const val = Number(e.target.value);
-        item.qty = e.target.value === '' ? '' : (isNaN(val) ? item.qty : val);
-      }
-      updateRowDisplay(id);
+      const key = e.target.dataset.key;
+      const item = cart.find((c) => c.productKey === key);
+      if (item) item.saleQty = e.target.value;
+      updateRowDisplay(key);
     });
-    input.addEventListener('blur', (e) => {
-      const id = Number(e.target.dataset.id);
-      const item = cart.find((c) => c.medicineId === id);
-      if (item && (item.qty === '' || item.qty < 1)) {
-        item.qty = 1;
-        e.target.value = 1;
-        updateRowDisplay(id);
-      }
+  });
+
+  el.querySelectorAll('.cart-unit').forEach((select) => {
+    select.addEventListener('change', (e) => {
+      updateCartItemUnit(e.target.dataset.key, e.target.value);
     });
   });
 
   el.querySelectorAll('.cart-price').forEach((input) => {
     input.addEventListener('input', (e) => {
-      const id = Number(e.target.dataset.id);
-      const item = cart.find((c) => c.medicineId === id);
-      if (item) {
-        const val = Number(e.target.value);
-        item.unitPrice = e.target.value === '' ? '' : (isNaN(val) ? item.unitPrice : val);
-      }
-      updateRowDisplay(id);
-    });
-    input.addEventListener('blur', (e) => {
-      const id = Number(e.target.dataset.id);
-      const item = cart.find((c) => c.medicineId === id);
-      if (item && (item.unitPrice === '' || item.unitPrice < 0)) {
-        item.unitPrice = 0;
-        e.target.value = 0;
-        updateRowDisplay(id);
-      }
+      const key = e.target.dataset.key;
+      const item = cart.find((c) => c.productKey === key);
+      if (item) item.unitPrice = e.target.value === '' ? 0 : Number(e.target.value);
+      updateRowDisplay(key);
     });
   });
 
   el.querySelectorAll('.cart-remove-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      removeFromCart(Number(e.target.dataset.id));
+      removeFromCart(e.target.dataset.key);
     });
   });
 }
@@ -156,7 +147,7 @@ async function renderSalesHistory(el) {
       <div class="stock-row" data-sale-id="${s.id}">
         <div>
           <strong>${formatDateTime(s.date)}</strong>
-          <div class="s-generic">${s.items.map((i) => `${i.brandName} × ${i.qty}`).join(', ')}</div>
+          <div class="s-generic">${s.items.map((i) => `${i.brandName} × ${i.saleQty ?? i.qty} ${unitOptionLabels[i.saleUnit] || 'পিস'}`).join(', ')}</div>
         </div>
         <div class="stock-row-right">
           <span>৳${s.total.toFixed(2)}</span>
@@ -172,9 +163,7 @@ async function renderSalesHistory(el) {
       const saleId = Number(btn.dataset.saleId);
       const sale = sales.find((s) => s.id === saleId);
       const invoice = await getInvoiceBySaleId(saleId);
-      if (sale && invoice) {
-        await downloadInvoicePDF(sale, invoice.invoiceNumber);
-      }
+      if (sale && invoice) await downloadInvoicePDF(sale, invoice.invoiceNumber);
     });
   });
 
@@ -183,9 +172,7 @@ async function renderSalesHistory(el) {
       const saleId = Number(btn.dataset.saleId);
       const sale = sales.find((s) => s.id === saleId);
       const invoice = await getInvoiceBySaleId(saleId);
-      if (sale && invoice) {
-        await printReceipt(sale, invoice.invoiceNumber);
-      }
+      if (sale && invoice) await printReceipt(sale, invoice.invoiceNumber);
     });
   });
 }
@@ -217,6 +204,14 @@ export function renderSaleView(container) {
   renderCartTable(cartContainer);
   renderSalesHistory(historyContainer);
 
+  // প্রোগ্রাম্যাটিক ক্লিয়ারের পর 'focus' ইভেন্টে যাতে আবার ডিফল্ট সাজেশন না খুলে যায়
+  let suppressNextFocusSuggest = false;
+
+  function hideSuggestions() {
+    suggestionsList.classList.add('hidden');
+    suggestionsList.innerHTML = '';
+  }
+
   function showSuggestions(results, { emptyLabel = 'স্টকে পাওয়া যায়নি' } = {}) {
     if (results.length === 0) {
       suggestionsList.innerHTML = `<li class="suggestion-item">${emptyLabel}</li>`;
@@ -228,7 +223,7 @@ export function renderSaleView(container) {
         (r, i) => `
         <li data-index="${i}" class="suggestion-item">
           <span class="s-brand">${r.brandName}</span>
-          <span class="s-generic">${r.genericName || ''} · স্টকে ${r.totalPieces ?? r.quantity} পিস</span>
+          <span class="s-generic">${r.genericName || ''} · স্টকে ${r.totalPieces} পিস</span>
         </li>`
       )
       .join('');
@@ -236,11 +231,19 @@ export function renderSaleView(container) {
 
     suggestionsList.querySelectorAll('.suggestion-item').forEach((li, i) => {
       li.addEventListener('click', () => {
-        addToCart(results[i]);
+        const productKey = addToCart(results[i]);
         searchInput.value = '';
-        suggestionsList.classList.add('hidden');
-        suggestionsList.innerHTML = '';
-        searchInput.focus();
+        hideSuggestions();
+
+        // যোগ হওয়া (বা আপডেট হওয়া) কার্ট রো-এর কোয়ান্টিটি বক্সে সরাসরি ফোকাস —
+        // পরের মেডিসিন সার্চ করার আগে বিক্রেতা সহজেই সংখ্যা বসাতে পারবে
+        requestAnimationFrame(() => {
+          const qtyInput = cartContainer.querySelector(`.cart-qty[data-key="${productKey}"]`);
+          if (qtyInput) {
+            qtyInput.focus();
+            qtyInput.select();
+          }
+        });
       });
     });
   }
@@ -259,6 +262,10 @@ export function renderSaleView(container) {
 
   // বক্সে ক্লিক/ফোকাস করা মাত্র ডিফল্ট লিস্ট (টপ সেলিং বা সাম্প্রতিক) দেখাবে
   searchInput.addEventListener('focus', async () => {
+    if (suppressNextFocusSuggest) {
+      suppressNextFocusSuggest = false;
+      return;
+    }
     if (!searchInput.value.trim()) {
       const top = await getTopSellingStock(8);
       showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
@@ -268,7 +275,7 @@ export function renderSaleView(container) {
   document.addEventListener('click', (e) => {
     if (!container.contains(e.target)) return;
     if (!e.target.closest('.autocomplete-wrapper')) {
-      suggestionsList.classList.add('hidden');
+      hideSuggestions();
     }
   });
 }
