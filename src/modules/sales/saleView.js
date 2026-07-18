@@ -46,7 +46,9 @@ function renderCartTable(el) {
             <td>
               <select class="cart-unit" data-key="${c.productKey}">
                 <option value="piece" ${c.saleUnit === 'piece' ? 'selected' : ''}>পিস</option>
-                <option value="strip" ${c.saleUnit === 'strip' ? 'selected' : ''}>স্ট্রিপ</option>
+                <option value="strip" ${c.saleUnit === 'strip' ? 'selected' : ''} ${c.piecesPerStrip <= 1 ? 'disabled' : ''}>
+                  স্ট্রিপ${c.piecesPerStrip <= 1 ? ' (তথ্য নেই)' : ''}
+                </option>
               </select>
             </td>
             <td><input type="number" class="cart-price" min="0" step="0.01" value="${c.unitPrice}" data-key="${c.productKey}" /></td>
