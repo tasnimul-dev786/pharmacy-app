@@ -19,6 +19,7 @@ export function addToCart(product) {
     const current = Number(existing.saleQty) || 0;
     existing.saleQty = current + 1;
   } else {
+    const pricePerPiece = product.unitPrice || 0;
     cart.push({
       productKey: product.productKey,
       brandName: product.brandName,
@@ -27,7 +28,8 @@ export function addToCart(product) {
       piecesPerStrip: product.piecesPerStrip || 1,
       saleUnit: 'piece',
       saleQty: '',
-      unitPrice: product.unitPrice || 0,
+      pricePerPiece,
+      unitPrice: pricePerPiece,
     });
   }
   notify();
@@ -42,7 +44,12 @@ export function updateCartItemQty(productKey, qty) {
 
 export function updateCartItemUnit(productKey, unit) {
   const item = cart.find((c) => c.productKey === productKey);
-  if (item) item.saleUnit = unit;
+  if (item) {
+    item.saleUnit = unit;
+    // unit বদলালে দাম-ও যেন সেই ইউনিট অনুযায়ী স্বাভাবিক (সঠিক) মান দেখায়
+    // — যেমন স্ট্রিপে বদলালে প্রতি-স্ট্রিপ দাম (পিস দাম × piecesPerStrip)
+    item.unitPrice = unit === 'strip' ? item.pricePerPiece * (item.piecesPerStrip || 1) : item.pricePerPiece;
+  }
   notify();
 }
 

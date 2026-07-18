@@ -189,7 +189,7 @@ export function renderSaleView(container) {
     <h3 style="margin-top:1.5rem">কার্ট</h3>
     <div id="cart-container"></div>
     <div id="sale-message" class="form-message"></div>
-    <h3 style="margin-top:2rem">সেলস হিস্ট্রি (সাম্প্রতিক ২০টা)</h3>
+    <h3 style="margin-top:2rem">সেলস হিস্ট্রি</h3>
     <div id="sales-history-container"></div>
   `;
 
