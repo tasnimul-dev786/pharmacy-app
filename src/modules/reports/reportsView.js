@@ -1,5 +1,6 @@
 import { getSalesInRange, getPeriodComparison, getTopSellingMedicines } from './reportsRepo.js';
 import { downloadReportPDF } from './reportPdf.js';
+import { mountDatePicker } from './datePicker.js';
 
 function toInputValue(d) {
   return d.toISOString().slice(0, 10);
@@ -39,48 +40,6 @@ function renderTopSellingTable(el, items) {
       </tbody>
     </table>
   `;
-}
-
-const monthNamesBn = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-
-/** dd/mm/yyyy ড্রপডাউন (দিন/মাস/বছর) — browser locale নির্বিশেষে সবসময় একই ফরম্যাট */
-function buildDateSelectHtml(idPrefix, isoValue) {
-  const [y, m, d] = isoValue.split('-').map(Number);
-  const currentYear = new Date().getFullYear();
-
-  const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1)
-    .map((day) => `<option value="${day}" ${day === d ? 'selected' : ''}>${day}</option>`)
-    .join('');
-
-  const monthOptions = monthNamesBn
-    .map((name, i) => `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${name}</option>`)
-    .join('');
-
-  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 3 + i)
-    .map((year) => `<option value="${year}" ${year === y ? 'selected' : ''}>${year}</option>`)
-    .join('');
-
-  return `
-    <div class="date-select-group" id="${idPrefix}-group">
-      <select class="date-day" id="${idPrefix}-day">${dayOptions}</select>
-      <select class="date-month" id="${idPrefix}-month">${monthOptions}</select>
-      <select class="date-year" id="${idPrefix}-year">${yearOptions}</select>
-    </div>
-  `;
-}
-
-function readDateSelectValue(idPrefix, container) {
-  const d = container.querySelector(`#${idPrefix}-day`).value.padStart(2, '0');
-  const m = container.querySelector(`#${idPrefix}-month`).value.padStart(2, '0');
-  const y = container.querySelector(`#${idPrefix}-year`).value;
-  return `${y}-${m}-${d}`;
-}
-
-function setDateSelectValue(idPrefix, container, isoValue) {
-  const [y, m, d] = isoValue.split('-').map(Number);
-  container.querySelector(`#${idPrefix}-day`).value = String(d);
-  container.querySelector(`#${idPrefix}-month`).value = String(m);
-  container.querySelector(`#${idPrefix}-year`).value = String(y);
 }
 
 function getPresetRange(preset) {
@@ -124,11 +83,11 @@ export async function renderReportsView(container) {
     <div id="custom-range-fields" class="hidden" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;max-width:520px;margin-top:0.8rem">
       <div class="form-field">
         <label>থেকে</label>
-        ${buildDateSelectHtml('from-date', defaultRange.from)}
+        <div id="from-date-picker"></div>
       </div>
       <div class="form-field">
         <label>পর্যন্ত</label>
-        ${buildDateSelectHtml('to-date', defaultRange.to)}
+        <div id="to-date-picker"></div>
       </div>
       <button id="apply-range-btn" class="btn-primary">দেখাও</button>
     </div>
@@ -144,6 +103,9 @@ export async function renderReportsView(container) {
   const summaryEl = container.querySelector('#range-summary');
   const topSellingEl = container.querySelector('#top-selling-container');
   const downloadPdfBtn = container.querySelector('#download-report-pdf-btn');
+
+  const fromPicker = mountDatePicker(container.querySelector('#from-date-picker'), defaultRange.from, () => {});
+  const toPicker = mountDatePicker(container.querySelector('#to-date-picker'), defaultRange.to, () => {});
 
   async function refreshRange(from, to) {
     currentRange = { from, to };
@@ -197,15 +159,15 @@ export async function renderReportsView(container) {
       }
       customFields.classList.add('hidden');
       const { from, to } = getPresetRange(preset);
-      setDateSelectValue('from-date', container, from);
-      setDateSelectValue('to-date', container, to);
+      fromPicker.setValue(from);
+      toPicker.setValue(to);
       await refreshRange(from, to);
     });
   });
 
   container.querySelector('#apply-range-btn').addEventListener('click', () => {
-    const from = readDateSelectValue('from-date', container);
-    const to = readDateSelectValue('to-date', container);
+    const from = fromPicker.getValue();
+    const to = toPicker.getValue();
     if (from && to && from <= to) {
       refreshRange(from, to);
     } else {
