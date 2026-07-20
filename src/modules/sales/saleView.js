@@ -11,7 +11,6 @@ import {
   getCartTotal,
   onCartChange,
   clearCart,
-  qtyInPieces,
 } from './cart.js';
 
 const unitOptionLabels = { piece: 'পিস', strip: 'স্ট্রিপ' };
@@ -24,10 +23,11 @@ function debounce(fn, delay) {
   };
 }
 
-function renderCartTable(el) {
+/** কার্ট টেবিল (মোডালের ভেতরে বসে) — qty/unit/price এডিট, কনফার্ম বাটন */
+function renderCartTable(el, { onConfirmed } = {}) {
   const cart = getCart();
   if (cart.length === 0) {
-    el.innerHTML = '<p class="empty-note">কার্ট খালি — উপরে সার্চ করে মেডিসিন যোগ করো।</p>';
+    el.innerHTML = '<p class="empty-note">কার্ট খালি — সার্চ করে মেডিসিন যোগ করো।</p>';
     return;
   }
 
@@ -60,11 +60,12 @@ function renderCartTable(el) {
       </tbody>
     </table>
     <div class="cart-total">মোট: ৳${getCartTotal().toFixed(2)}</div>
+    <div id="sale-message" class="form-message"></div>
     <button id="confirm-sale-btn" class="btn-primary" style="margin-top:0.4rem">সেল কনফার্ম করো</button>
   `;
 
   el.querySelector('#confirm-sale-btn').addEventListener('click', async () => {
-    const msgEl = document.getElementById('sale-message');
+    const msgEl = el.querySelector('#sale-message');
     msgEl.textContent = '';
     msgEl.className = 'form-message';
     try {
@@ -78,14 +79,13 @@ function renderCartTable(el) {
         printReceipt(result, result.invoiceNumber);
       });
       clearCart();
-      renderSalesHistory(document.getElementById('sales-history-container'));
+      if (onConfirmed) onConfirmed();
     } catch (err) {
       msgEl.textContent = '✗ ' + err.message;
       msgEl.classList.add('error');
     }
   });
 
-  // --- কোয়ান্টিটি/দাম ইনপুট — সরাসরি ডাটা মিউটেট, ফোকাস হারানো এড়াতে ফুল re-render না করে ---
   function updateRowDisplay(productKey) {
     const item = cart.find((c) => c.productKey === productKey);
     if (!item) return;
@@ -179,7 +179,7 @@ async function renderSalesHistory(el) {
   });
 }
 
-/** সেল ভিউ (সার্চ + কার্ট) container এর ভেতরে রেন্ডার করে */
+/** সেল ভিউ container এর ভেতরে রেন্ডার করে — কার্ট এখন ফ্লোটিং বার + পপআপ */
 export function renderSaleView(container) {
   container.innerHTML = `
     <h2>সেল</h2>
@@ -188,26 +188,76 @@ export function renderSaleView(container) {
       <input type="text" id="sale-search" autocomplete="off" placeholder="মেডিসিন খুঁজুন..." />
       <ul id="sale-suggestions" class="suggestions-list hidden"></ul>
     </div>
-    <h3 style="margin-top:1.5rem">কার্ট</h3>
-    <div id="cart-container"></div>
-    <div id="sale-message" class="form-message"></div>
     <h3 style="margin-top:2rem">সেলস হিস্ট্রি</h3>
     <div id="sales-history-container"></div>
+    <div id="cart-float-bar" class="cart-float-bar hidden">
+      <span id="cart-float-summary"></span>
+      <span>কার্ট দেখো ▸</span>
+    </div>
   `;
 
   renderShopInfoForm(container.querySelector('#shop-info-container'));
 
   const searchInput = container.querySelector('#sale-search');
   const suggestionsList = container.querySelector('#sale-suggestions');
-  const cartContainer = container.querySelector('#cart-container');
   const historyContainer = container.querySelector('#sales-history-container');
+  const floatBar = container.querySelector('#cart-float-bar');
+  const floatSummary = container.querySelector('#cart-float-summary');
 
-  onCartChange(() => renderCartTable(cartContainer));
-  renderCartTable(cartContainer);
+  let cartModalOverlay = null;
+
+  function updateFloatBar() {
+    const cart = getCart();
+    if (cart.length === 0) {
+      floatBar.classList.add('hidden');
+      return;
+    }
+    floatBar.classList.remove('hidden');
+    floatSummary.textContent = `${cart.length} টা আইটেম · ৳${getCartTotal().toFixed(2)}`;
+
+    // মোডাল খোলা থাকলে সেটাও রিফ্রেশ করা
+    if (cartModalOverlay) {
+      const modalCartEl = cartModalOverlay.querySelector('.cart-modal-body');
+      if (modalCartEl) renderCartTable(modalCartEl, { onConfirmed: closeCartModal });
+    }
+  }
+
+  function closeCartModal() {
+    if (cartModalOverlay) {
+      cartModalOverlay.remove();
+      cartModalOverlay = null;
+    }
+    renderSalesHistory(historyContainer);
+  }
+
+  function openCartModal() {
+    if (cartModalOverlay) return;
+    cartModalOverlay = document.createElement('div');
+    cartModalOverlay.className = 'modal-overlay';
+    cartModalOverlay.innerHTML = `
+      <div class="modal-box cart-modal-box">
+        <div class="modal-header">
+          <strong>কার্ট</strong>
+          <button class="modal-close-btn" title="বন্ধ করো">✕</button>
+        </div>
+        <div class="cart-modal-body"></div>
+      </div>
+    `;
+    document.body.appendChild(cartModalOverlay);
+
+    cartModalOverlay.querySelector('.modal-close-btn').addEventListener('click', closeCartModal);
+    cartModalOverlay.addEventListener('click', (e) => {
+      if (e.target === cartModalOverlay) closeCartModal();
+    });
+
+    renderCartTable(cartModalOverlay.querySelector('.cart-modal-body'), { onConfirmed: closeCartModal });
+  }
+
+  floatBar.addEventListener('click', openCartModal);
+
+  onCartChange(updateFloatBar);
+  updateFloatBar();
   renderSalesHistory(historyContainer);
-
-  // প্রোগ্রাম্যাটিক ক্লিয়ারের পর 'focus' ইভেন্টে যাতে আবার ডিফল্ট সাজেশন না খুলে যায়
-  let suppressNextFocusSuggest = false;
 
   function hideSuggestions() {
     suggestionsList.classList.add('hidden');
@@ -233,14 +283,14 @@ export function renderSaleView(container) {
 
     suggestionsList.querySelectorAll('.suggestion-item').forEach((li, i) => {
       li.addEventListener('click', () => {
-        const productKey = addToCart(results[i]);
+        addToCart(results[i]);
         searchInput.value = '';
         hideSuggestions();
+        openCartModal();
 
-        // যোগ হওয়া (বা আপডেট হওয়া) কার্ট রো-এর কোয়ান্টিটি বক্সে সরাসরি ফোকাস —
-        // পরের মেডিসিন সার্চ করার আগে বিক্রেতা সহজেই সংখ্যা বসাতে পারবে
         requestAnimationFrame(() => {
-          const qtyInput = cartContainer.querySelector(`.cart-qty[data-key="${productKey}"]`);
+          const key = results[i].productKey;
+          const qtyInput = cartModalOverlay?.querySelector(`.cart-qty[data-key="${key}"]`);
           if (qtyInput) {
             qtyInput.focus();
             qtyInput.select();
@@ -262,12 +312,7 @@ export function renderSaleView(container) {
 
   searchInput.addEventListener('input', (e) => runSearch(e.target.value));
 
-  // বক্সে ক্লিক/ফোকাস করা মাত্র ডিফল্ট লিস্ট (টপ সেলিং বা সাম্প্রতিক) দেখাবে
   searchInput.addEventListener('focus', async () => {
-    if (suppressNextFocusSuggest) {
-      suppressNextFocusSuggest = false;
-      return;
-    }
     if (!searchInput.value.trim()) {
       const top = await getTopSellingStock(8);
       showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });

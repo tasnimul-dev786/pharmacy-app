@@ -37,9 +37,9 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
       <div class="form-field">
         <label for="unit">এককের ধরন *</label>
         <select id="unit" name="unit">
-          <option value="piece">পিস</option>
+          <option value="box" selected>বক্স</option>
           <option value="strip">স্ট্রিপ</option>
-          <option value="box">বক্স</option>
+          <option value="piece">পিস</option>
         </select>
       </div>
 

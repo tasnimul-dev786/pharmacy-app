@@ -528,3 +528,32 @@ body {
 .dp-empty {
   cursor: default;
 }
+
+/* --- ফ্লোটিং কার্ট বার --- */
+.cart-float-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  background: #1a7f4e;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  z-index: 90;
+  cursor: pointer;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
+}
+
+.cart-float-bar.hidden {
+  display: none;
+}
+
+.cart-float-bar span {
+  font-size: 0.9rem;
+}
+
+.cart-modal-box {
+  max-width: 620px;
+}
