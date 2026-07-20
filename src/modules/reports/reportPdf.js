@@ -1,0 +1,81 @@
+import { jsPDF } from 'jspdf';
+import { getShopInfo } from '../settings/settingsRepo.js';
+import { NotoSansBengaliBase64 } from '../../assets/fonts/NotoSansBengali-base64.js';
+
+function registerBengaliFont(doc) {
+  doc.addFileToVFS('NotoSansBengali.ttf', NotoSansBengaliBase64);
+  doc.addFont('NotoSansBengali.ttf', 'NotoSansBengali', 'normal');
+  doc.setFont('NotoSansBengali');
+}
+
+/**
+ * রিপোর্ট ট্যাবের বর্তমান সামারি + টপ সেলিং লিস্ট PDF আকারে ডাউনলোড করে।
+ * stats: { total, billCount, avgPerDay, bestDay, changePercent, fromLabel, toLabel }
+ * topSelling: [{ brandName, genericName, qty, revenue }]
+ */
+export async function downloadReportPDF(stats, topSelling) {
+  const shop = await getShopInfo();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  registerBengaliFont(doc);
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let y = 20;
+
+  doc.setFontSize(16);
+  doc.text(shop.shopName || 'Pharmacy', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  doc.setFontSize(12);
+  doc.text(`Report: ${stats.fromLabel} - ${stats.toLabel}`, pageWidth / 2, y, { align: 'center' });
+  y += 10;
+
+  doc.setLineWidth(0.3);
+  doc.line(15, y, pageWidth - 15, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.text(`Total Sales: ${stats.total.toFixed(2)}`, 15, y);
+  y += 7;
+  doc.text(`Total Bills: ${stats.billCount}`, 15, y);
+  y += 7;
+  doc.text(`Average per day: ${stats.avgPerDay.toFixed(2)}`, 15, y);
+  y += 7;
+  if (stats.changePercent !== null) {
+    doc.text(`vs previous period: ${stats.changePercent >= 0 ? '+' : ''}${stats.changePercent.toFixed(0)}%`, 15, y);
+    y += 7;
+  }
+  if (stats.bestDay) {
+    doc.text(`Best day: ${stats.bestDay.date} (${stats.bestDay.amount.toFixed(2)})`, 15, y);
+    y += 7;
+  }
+
+  y += 5;
+  doc.line(15, y, pageWidth - 15, y);
+  y += 8;
+
+  doc.setFontSize(12);
+  doc.text('Top Selling Medicines', 15, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.text('Item', 15, y);
+  doc.text('Qty', 130, y, { align: 'right' });
+  doc.text('Revenue', pageWidth - 15, y, { align: 'right' });
+  y += 3;
+  doc.line(15, y, pageWidth - 15, y);
+  y += 6;
+
+  topSelling.forEach((item) => {
+    doc.text(item.brandName, 15, y);
+    doc.text(String(item.qty), 130, y, { align: 'right' });
+    doc.text(item.revenue.toFixed(2), pageWidth - 15, y, { align: 'right' });
+    y += 6;
+    if (y > 270) {
+      doc.addPage();
+      registerBengaliFont(doc);
+      y = 20;
+    }
+  });
+
+  doc.save(`report-${stats.fromLabel.replace(/\//g, '-')}-to-${stats.toLabel.replace(/\//g, '-')}.pdf`);
+}
