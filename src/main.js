@@ -28,6 +28,7 @@ function renderNav(activeTab, onSwitch) {
 }
 
 async function showTab(key) {
+  localStorage.setItem('activeTab', key);
   contentEl.innerHTML = '';
   const nav = renderNav(key, showTab);
   contentEl.appendChild(nav);
@@ -49,7 +50,8 @@ async function showTab(key) {
 async function init() {
   contentEl.innerHTML = '<p>মেডিসিন লিস্ট লোড হচ্ছে, একটু অপেক্ষা করুন...</p>';
   await seedMasterListIfEmpty();
-  await showTab('sale');
+  const lastTab = localStorage.getItem('activeTab') || 'sale';
+  await showTab(lastTab);
 }
 
 init();

@@ -23,7 +23,7 @@ export function mountDatePicker(container, initialISO, onChange) {
 
   container.innerHTML = `
     <div class="date-picker-wrapper">
-      <button type="button" class="date-picker-btn">📅 <span class="dp-label"></span></button>
+      <button type="button" class="date-picker-btn"><span class="dp-label"></span></button>
       <div class="date-picker-popup hidden"></div>
     </div>
   `;
