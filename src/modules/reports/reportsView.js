@@ -1,4 +1,5 @@
 import { getSalesInRange, getPeriodComparison, getTopSellingMedicines } from './reportsRepo.js';
+import { downloadReportPDF } from './reportPdf.js';
 
 function toInputValue(d) {
   return d.toISOString().slice(0, 10);
@@ -40,6 +41,48 @@ function renderTopSellingTable(el, items) {
   `;
 }
 
+const monthNamesBn = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+
+/** dd/mm/yyyy ড্রপডাউন (দিন/মাস/বছর) — browser locale নির্বিশেষে সবসময় একই ফরম্যাট */
+function buildDateSelectHtml(idPrefix, isoValue) {
+  const [y, m, d] = isoValue.split('-').map(Number);
+  const currentYear = new Date().getFullYear();
+
+  const dayOptions = Array.from({ length: 31 }, (_, i) => i + 1)
+    .map((day) => `<option value="${day}" ${day === d ? 'selected' : ''}>${day}</option>`)
+    .join('');
+
+  const monthOptions = monthNamesBn
+    .map((name, i) => `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${name}</option>`)
+    .join('');
+
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 3 + i)
+    .map((year) => `<option value="${year}" ${year === y ? 'selected' : ''}>${year}</option>`)
+    .join('');
+
+  return `
+    <div class="date-select-group" id="${idPrefix}-group">
+      <select class="date-day" id="${idPrefix}-day">${dayOptions}</select>
+      <select class="date-month" id="${idPrefix}-month">${monthOptions}</select>
+      <select class="date-year" id="${idPrefix}-year">${yearOptions}</select>
+    </div>
+  `;
+}
+
+function readDateSelectValue(idPrefix, container) {
+  const d = container.querySelector(`#${idPrefix}-day`).value.padStart(2, '0');
+  const m = container.querySelector(`#${idPrefix}-month`).value.padStart(2, '0');
+  const y = container.querySelector(`#${idPrefix}-year`).value;
+  return `${y}-${m}-${d}`;
+}
+
+function setDateSelectValue(idPrefix, container, isoValue) {
+  const [y, m, d] = isoValue.split('-').map(Number);
+  container.querySelector(`#${idPrefix}-day`).value = String(d);
+  container.querySelector(`#${idPrefix}-month`).value = String(m);
+  container.querySelector(`#${idPrefix}-year`).value = String(y);
+}
+
 function getPresetRange(preset) {
   const today = new Date();
   let from, to;
@@ -63,6 +106,9 @@ function getPresetRange(preset) {
 
 export async function renderReportsView(container) {
   const defaultRange = getPresetRange('week');
+  let currentRange = { ...defaultRange };
+  let currentTopSelling = [];
+  let currentStats = null;
 
   container.innerHTML = `
     <h2>রিপোর্ট</h2>
@@ -75,43 +121,32 @@ export async function renderReportsView(container) {
       <button class="btn-secondary preset-btn" data-preset="custom">কাস্টম তারিখ</button>
     </div>
 
-    <div id="custom-range-fields" class="hidden" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;max-width:480px;margin-top:0.8rem">
+    <div id="custom-range-fields" class="hidden" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;max-width:520px;margin-top:0.8rem">
       <div class="form-field">
-        <label for="from-date">থেকে</label>
-        <input type="date" id="from-date" value="${defaultRange.from}" />
-        <span id="from-date-display" class="s-generic"></span>
+        <label>থেকে</label>
+        ${buildDateSelectHtml('from-date', defaultRange.from)}
       </div>
       <div class="form-field">
-        <label for="to-date">পর্যন্ত</label>
-        <input type="date" id="to-date" value="${defaultRange.to}" />
-        <span id="to-date-display" class="s-generic"></span>
+        <label>পর্যন্ত</label>
+        ${buildDateSelectHtml('to-date', defaultRange.to)}
       </div>
       <button id="apply-range-btn" class="btn-primary">দেখাও</button>
     </div>
 
     <div id="range-summary" class="report-summary"></div>
+    <button id="download-report-pdf-btn" class="btn-secondary">📄 রিপোর্ট PDF ডাউনলোড</button>
 
     <h3 style="margin-top:1.5rem">কোন ওষুধ সবচেয়ে বেশি বিক্রি হয়েছে</h3>
     <div id="top-selling-container"></div>
   `;
 
-  const fromInput = container.querySelector('#from-date');
-  const toInput = container.querySelector('#to-date');
-  const fromDisplay = container.querySelector('#from-date-display');
-  const toDisplay = container.querySelector('#to-date-display');
   const customFields = container.querySelector('#custom-range-fields');
   const summaryEl = container.querySelector('#range-summary');
   const topSellingEl = container.querySelector('#top-selling-container');
-
-  function updateDateDisplays() {
-    fromDisplay.textContent = toDDMMYYYY(fromInput.value);
-    toDisplay.textContent = toDDMMYYYY(toInput.value);
-  }
-  fromInput.addEventListener('change', updateDateDisplays);
-  toInput.addEventListener('change', updateDateDisplays);
-  updateDateDisplays();
+  const downloadPdfBtn = container.querySelector('#download-report-pdf-btn');
 
   async function refreshRange(from, to) {
+    currentRange = { from, to };
     const { total, billCount, bestDay, numDays } = await getSalesInRange(from, to);
     const { prevTotal } = await getPeriodComparison(from, to);
 
@@ -119,9 +154,15 @@ export async function renderReportsView(container) {
     const toLabel = toDDMMYYYY(to);
     const avgPerDay = numDays > 0 ? total / numDays : 0;
 
-    let comparisonHtml = '';
+    let changePercent = null;
     if (prevTotal > 0) {
-      const changePercent = ((total - prevTotal) / prevTotal) * 100;
+      changePercent = ((total - prevTotal) / prevTotal) * 100;
+    }
+
+    currentStats = { total, billCount, avgPerDay, bestDay, changePercent, fromLabel, toLabel };
+
+    let comparisonHtml = '';
+    if (changePercent !== null) {
       const up = changePercent >= 0;
       comparisonHtml = `<div class="report-summary-line ${up ? 'trend-up' : 'trend-down'}">
         আগের একই দৈর্ঘ্যের সময়ের তুলনায় ${up ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(0)}%
@@ -140,8 +181,8 @@ export async function renderReportsView(container) {
       ${bestDayHtml}
     `;
 
-    const topSelling = await getTopSellingMedicines(10, from, to);
-    renderTopSellingTable(topSellingEl, topSelling);
+    currentTopSelling = await getTopSellingMedicines(10, from, to);
+    renderTopSellingTable(topSellingEl, currentTopSelling);
   }
 
   container.querySelectorAll('.preset-btn').forEach((btn) => {
@@ -156,16 +197,25 @@ export async function renderReportsView(container) {
       }
       customFields.classList.add('hidden');
       const { from, to } = getPresetRange(preset);
-      fromInput.value = from;
-      toInput.value = to;
-      updateDateDisplays();
+      setDateSelectValue('from-date', container, from);
+      setDateSelectValue('to-date', container, to);
       await refreshRange(from, to);
     });
   });
 
   container.querySelector('#apply-range-btn').addEventListener('click', () => {
-    if (fromInput.value && toInput.value && fromInput.value <= toInput.value) {
-      refreshRange(fromInput.value, toInput.value);
+    const from = readDateSelectValue('from-date', container);
+    const to = readDateSelectValue('to-date', container);
+    if (from && to && from <= to) {
+      refreshRange(from, to);
+    } else {
+      alert('"পর্যন্ত" তারিখ "থেকে" তারিখের আগে হতে পারবে না');
+    }
+  });
+
+  downloadPdfBtn.addEventListener('click', () => {
+    if (currentStats) {
+      downloadReportPDF(currentStats, currentTopSelling);
     }
   });
 

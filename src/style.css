@@ -433,3 +433,16 @@ body {
 .stock-summary-row:hover {
   background: #f7f7f7;
 }
+
+/* --- dd/mm/yyyy ড্রপডাউন ডেট পিকার --- */
+.date-select-group {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.date-select-group select {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}

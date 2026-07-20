@@ -119,8 +119,10 @@ export async function getTopSellingMedicines(limit = 10, fromDateStr = null, toD
     s.items.forEach((i) => {
       const key = i.brandName;
       if (!agg[key]) agg[key] = { brandName: i.brandName, genericName: i.genericName, qty: 0, revenue: 0 };
-      agg[key].qty += i.qty;
-      agg[key].revenue += i.subtotal;
+      const qty = Number(i.qtyPieces ?? i.qty ?? 0);
+      agg[key].qty += isNaN(qty) ? 0 : qty;
+      const subtotal = Number(i.subtotal ?? 0);
+      agg[key].revenue += isNaN(subtotal) ? 0 : subtotal;
     });
   });
   return Object.values(agg)
