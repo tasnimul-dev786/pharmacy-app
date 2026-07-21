@@ -186,8 +186,7 @@ export function renderSaleView(container) {
     <h3>সেলস হিস্ট্রি</h3>
     <div id="sales-history-container"></div>
     <div id="cart-float-bar" class="cart-float-bar">
-      <span id="cart-float-summary">নতুন সেল শুরু করতে ট্যাপ করো</span>
-      <span>▸</span>
+      <span id="cart-float-summary">+ নতুন সেল</span>
     </div>
   `;
 
@@ -202,9 +201,9 @@ export function renderSaleView(container) {
   function updateFloatBar() {
     const cart = getCart();
     if (cart.length === 0) {
-      floatSummary.textContent = 'নতুন সেল শুরু করতে ট্যাপ করো';
+      floatSummary.textContent = '+ নতুন সেল';
     } else {
-      floatSummary.textContent = `${cart.length} টা আইটেম · ৳${getCartTotal().toFixed(2)}`;
+      floatSummary.textContent = `🛒 ${cart.length} · ৳${getCartTotal().toFixed(2)}`;
     }
     if (cartModalOverlay) {
       const modalCartEl = cartModalOverlay.querySelector('.cart-modal-body');

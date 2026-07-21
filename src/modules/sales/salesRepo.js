@@ -56,13 +56,24 @@ export async function confirmSale(cartItems, customerName = '') {
         const batchQty = batch.totalPieces ?? batch.quantity;
         if (batchQty <= 0) continue;
         const deduct = Math.min(batchQty, remaining);
-        const newQty = batchQty - deduct;
+        const newTotalPieces = batchQty - deduct;
+
+        // unit/piecesPerStrip/stripsPerBox অপরিবর্তিত রাখা হচ্ছে — নাহলে পরের সেলে
+        // স্ট্রিপ/বক্স কনভার্শন তথ্য হারিয়ে যায়। quantity-ও একই এককে recompute করা হয়।
+        const pps = batch.piecesPerStrip || 1;
+        const spb = batch.stripsPerBox || 1;
+        let newQuantity;
+        if (batch.unit === 'box') {
+          newQuantity = newTotalPieces / (pps * spb);
+        } else if (batch.unit === 'strip') {
+          newQuantity = newTotalPieces / pps;
+        } else {
+          newQuantity = newTotalPieces;
+        }
+
         await db.medicines.update(batch.id, {
-          unit: 'piece',
-          quantity: newQty,
-          totalPieces: newQty,
-          piecesPerStrip: 1,
-          stripsPerBox: 1,
+          quantity: newQuantity,
+          totalPieces: newTotalPieces,
         });
         remaining -= deduct;
       }
