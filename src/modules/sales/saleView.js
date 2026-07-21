@@ -11,6 +11,10 @@ import {
   getCartTotal,
   onCartChange,
   clearCart,
+  setDiscount,
+  getDiscount,
+  getDiscountAmount,
+  getGrandTotal,
 } from './cart.js';
 
 const unitOptionLabels = { piece: 'পিস', strip: 'স্ট্রিপ' };
@@ -58,17 +62,41 @@ function renderCartTable(el, { onConfirmed } = {}) {
           .join('')}
       </tbody>
     </table>
-    <div class="cart-total">মোট: ৳${getCartTotal().toFixed(2)}</div>
+    <div class="cart-total cart-subtotal-line">সাবটোটাল: ৳${getCartTotal().toFixed(2)}</div>
+    <div class="discount-row">
+      <label>ছাড়:</label>
+      <input type="number" id="discount-value" min="0" step="0.01" value="${getDiscount().value || ''}" placeholder="0" />
+      <select id="discount-type">
+        <option value="flat" ${getDiscount().type === 'flat' ? 'selected' : ''}>৳</option>
+        <option value="percent" ${getDiscount().type === 'percent' ? 'selected' : ''}>%</option>
+      </select>
+      <span id="discount-amount-label" class="s-generic">(-৳${getDiscountAmount().toFixed(2)})</span>
+    </div>
+    <div class="cart-total cart-grand-total">সর্বমোট: ৳${getGrandTotal().toFixed(2)}</div>
     <div id="sale-message" class="form-message"></div>
     <button id="confirm-sale-btn" class="btn-primary" style="margin-top:0.4rem">সেল কনফার্ম করো</button>
   `;
+
+  el.querySelector('#discount-value').addEventListener('input', (e) => {
+    setDiscount(e.target.value, getDiscount().type);
+    updateDiscountDisplay();
+  });
+  el.querySelector('#discount-type').addEventListener('change', (e) => {
+    setDiscount(getDiscount().value, e.target.value);
+    updateDiscountDisplay();
+  });
+
+  function updateDiscountDisplay() {
+    el.querySelector('#discount-amount-label').textContent = `(-৳${getDiscountAmount().toFixed(2)})`;
+    el.querySelector('.cart-grand-total').textContent = `সর্বমোট: ৳${getGrandTotal().toFixed(2)}`;
+  }
 
   el.querySelector('#confirm-sale-btn').addEventListener('click', async () => {
     const msgEl = el.querySelector('#sale-message');
     msgEl.textContent = '';
     msgEl.className = 'form-message';
     try {
-      const result = await confirmSale(getCart());
+      const result = await confirmSale(getCart(), '', getDiscount());
       msgEl.innerHTML = `✓ সেল সম্পন্ন — ইনভয়েস: ${result.invoiceNumber}, মোট: ৳${result.total.toFixed(2)} &nbsp; <button id="download-pdf-btn" class="btn-secondary">📄 PDF</button> <button id="print-receipt-btn" class="btn-secondary">🖨️ প্রিন্ট</button>`;
       msgEl.classList.add('success');
       msgEl.querySelector('#download-pdf-btn').addEventListener('click', () => {
@@ -92,8 +120,9 @@ function renderCartTable(el, { onConfirmed } = {}) {
     if (row) {
       row.querySelector('.cart-subtotal').textContent = `৳${((Number(item.saleQty) || 0) * item.unitPrice).toFixed(2)}`;
     }
-    const totalEl = el.querySelector('.cart-total');
-    if (totalEl) totalEl.textContent = `মোট: ৳${getCartTotal().toFixed(2)}`;
+    const totalEl = el.querySelector('.cart-subtotal-line');
+    if (totalEl) totalEl.textContent = `সাবটোটাল: ৳${getCartTotal().toFixed(2)}`;
+    updateDiscountDisplay();
   }
 
   el.querySelectorAll('.cart-qty').forEach((input) => {
@@ -203,7 +232,7 @@ export function renderSaleView(container) {
     if (cart.length === 0) {
       floatSummary.textContent = '+ নতুন সেল';
     } else {
-      floatSummary.textContent = `🛒 ${cart.length} · ৳${getCartTotal().toFixed(2)}`;
+      floatSummary.textContent = `🛒 ${cart.length} · ৳${getGrandTotal().toFixed(2)}`;
     }
     if (cartModalOverlay) {
       const modalCartEl = cartModalOverlay.querySelector('.cart-modal-body');

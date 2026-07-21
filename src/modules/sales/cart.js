@@ -2,10 +2,30 @@
 // একই মেডিসিনের একাধিক ব্যাচ থাকলেও কার্টে একটাই লাইন থাকবে।
 
 let cart = [];
+let discount = { value: 0, type: 'flat' }; // type: 'flat' (৳) | 'percent' (%)
 const listeners = [];
 
 export function getCart() {
   return cart;
+}
+
+export function setDiscount(value, type) {
+  discount = { value: Math.max(0, Number(value) || 0), type };
+  notify();
+}
+
+export function getDiscount() {
+  return discount;
+}
+
+export function getDiscountAmount() {
+  const subtotal = getCartTotal();
+  const amount = discount.type === 'percent' ? (subtotal * discount.value) / 100 : discount.value;
+  return Math.min(subtotal, Math.max(0, amount));
+}
+
+export function getGrandTotal() {
+  return getCartTotal() - getDiscountAmount();
 }
 
 /**
@@ -66,6 +86,7 @@ export function removeFromCart(productKey) {
 
 export function clearCart() {
   cart = [];
+  discount = { value: 0, type: 'flat' };
   notify();
 }
 

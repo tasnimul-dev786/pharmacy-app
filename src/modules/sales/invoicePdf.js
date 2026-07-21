@@ -62,7 +62,8 @@ export async function downloadInvoicePDF(sale, invoiceNumber) {
 
   sale.items.forEach((item) => {
     doc.text(item.brandName, 15, y);
-    doc.text(String(item.qty), 110, y, { align: 'right' });
+    const unitLabel = item.saleUnit === 'strip' ? 'strip' : 'pc';
+    doc.text(`${item.saleQty ?? item.qty} ${unitLabel}`, 110, y, { align: 'right' });
     doc.text(item.unitPrice.toFixed(2), 145, y, { align: 'right' });
     doc.text(item.subtotal.toFixed(2), pageWidth - 15, y, { align: 'right' });
     y += 6;
@@ -77,6 +78,14 @@ export async function downloadInvoicePDF(sale, invoiceNumber) {
   doc.line(15, y, pageWidth - 15, y);
   y += 8;
 
+  if (sale.discountAmount > 0) {
+    doc.setFontSize(10);
+    doc.text(`Subtotal: ${sale.subtotal.toFixed(2)}`, pageWidth - 15, y, { align: 'right' });
+    y += 6;
+    const discLabel = sale.discountType === 'percent' ? `Discount (${sale.discountValue}%)` : 'Discount';
+    doc.text(`${discLabel}: -${sale.discountAmount.toFixed(2)}`, pageWidth - 15, y, { align: 'right' });
+    y += 8;
+  }
   doc.setFontSize(12);
   doc.text(`Total: ${sale.total.toFixed(2)}`, pageWidth - 15, y, { align: 'right' });
 

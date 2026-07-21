@@ -11,7 +11,7 @@ import { normalizeKey, aggregateByProduct } from '../stock/stockRepo.js';
  * - sales ও invoices টেবিলে রেকর্ড সেভ করে
  * সব একটা transaction-এ হয় — মাঝপথে সমস্যা হলে কিছুই সেভ হবে না।
  */
-export async function confirmSale(cartItems, customerName = '') {
+export async function confirmSale(cartItems, customerName = '', discount = { value: 0, type: 'flat' }) {
   if (!cartItems || cartItems.length === 0) {
     throw new Error('কার্ট খালি');
   }
@@ -79,7 +79,13 @@ export async function confirmSale(cartItems, customerName = '') {
       }
     }
 
-    const total = itemsWithPieces.reduce((sum, c) => sum + Number(c.saleQty) * c.unitPrice, 0);
+    const subtotal = itemsWithPieces.reduce((sum, c) => sum + Number(c.saleQty) * c.unitPrice, 0);
+    const discountValue = Math.max(0, Number(discount.value) || 0);
+    const discountAmount = Math.min(
+      subtotal,
+      discount.type === 'percent' ? (subtotal * discountValue) / 100 : discountValue
+    );
+    const total = subtotal - discountAmount;
     const date = new Date().toISOString();
 
     const saleItems = itemsWithPieces.map((c) => ({
@@ -96,13 +102,17 @@ export async function confirmSale(cartItems, customerName = '') {
       date,
       customerName: customerName.trim(),
       items: saleItems,
+      subtotal,
+      discountType: discount.type,
+      discountValue,
+      discountAmount,
       total,
     });
 
     const invoiceNumber = `INV-${new Date(date).getTime()}`;
     await db.invoices.add({ saleId, invoiceNumber, date, printed: false });
 
-    return { saleId, invoiceNumber, total, date, items: saleItems };
+    return { saleId, invoiceNumber, subtotal, discountType: discount.type, discountValue, discountAmount, total, date, items: saleItems };
   });
 }
 

@@ -19,12 +19,19 @@ function buildReceiptHtml(sale, invoiceNumber, shop) {
         .map(
           (i) => `
         <div style="display:flex;justify-content:space-between;">
-          <span>${i.brandName} x${i.qty}</span>
+          <span>${i.brandName} x${i.saleQty ?? i.qty} ${i.saleUnit === 'strip' ? 'স্ট্রিপ' : 'পিস'}</span>
           <span>${i.subtotal.toFixed(2)}</span>
         </div>`
         )
         .join('')}
       <div style="border-top:1px dashed #000;margin:6px 0;"></div>
+      ${sale.discountAmount > 0 ? `
+      <div style="display:flex;justify-content:space-between;">
+        <span>সাবটোটাল</span><span>৳${sale.subtotal.toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>ছাড়${sale.discountType === 'percent' ? ` (${sale.discountValue}%)` : ''}</span><span>-৳${sale.discountAmount.toFixed(2)}</span>
+      </div>` : ''}
       <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px;">
         <span>মোট</span><span>৳${sale.total.toFixed(2)}</span>
       </div>
