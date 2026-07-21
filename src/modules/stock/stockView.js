@@ -153,47 +153,64 @@ async function renderStockList(listEl, searchQuery, handlers) {
   renderStockRows(listEl, filterStock(currentStock, searchQuery), handlers);
 }
 
-/** স্টক ভিউ (ফর্ম + লিস্ট + সার্চ + এডিট/ডিলিট) container এর ভেতরে রেন্ডার করে */
+/** স্টক ভিউ (লিস্ট + সার্চ + এডিট/ডিলিট + মেডিসিন যোগ/এডিট মোডাল) container এর ভেতরে রেন্ডার করে */
 export async function renderStockView(container) {
   container.innerHTML = `
-    <h2 id="form-title">নতুন মেডিসিন যোগ করো</h2>
-    <div id="add-form-container"></div>
-    <h2 style="margin-top:2rem">বর্তমান স্টক</h2>
-    <div class="form-field" style="max-width:420px">
-      <input type="text" id="stock-search" placeholder="স্টকে খুঁজুন (নাম বা জেনেরিক)..." />
+    <h2>বর্তমান স্টক</h2>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;max-width:520px">
+      <input type="text" id="stock-search" placeholder="স্টকে খুঁজুন (নাম বা জেনেরিক)..." style="flex:1;min-width:200px" />
+      <button id="open-add-modal-btn" class="btn-primary">+ নতুন মেডিসিন যোগ করো</button>
     </div>
-    <div id="stock-list-container"></div>
+    <div id="stock-list-container" style="margin-top:1rem"></div>
   `;
 
-  const formTitleEl = container.querySelector('#form-title');
-  const formContainer = container.querySelector('#add-form-container');
   const listContainer = container.querySelector('#stock-list-container');
   const searchInput = container.querySelector('#stock-search');
+  const openAddBtn = container.querySelector('#open-add-modal-btn');
 
-  function showAddForm() {
-    formTitleEl.textContent = 'নতুন মেডিসিন যোগ করো';
-    renderAddMedicineForm(formContainer, async () => {
-      await renderStockList(listContainer, searchInput.value, handlers);
-    });
+  let formModalOverlay = null;
+
+  function closeFormModal() {
+    if (formModalOverlay) {
+      formModalOverlay.remove();
+      formModalOverlay = null;
+    }
   }
 
-  function showEditForm(record) {
-    formTitleEl.textContent = `মেডিসিন এডিট করো — ${record.brandName}`;
+  function openFormModal(editRecord = null) {
+    closeFormModal();
+    formModalOverlay = document.createElement('div');
+    formModalOverlay.className = 'modal-overlay';
+    formModalOverlay.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <strong>${editRecord ? `মেডিসিন এডিট করো — ${editRecord.brandName}` : 'নতুন মেডিসিন যোগ করো'}</strong>
+          <button class="modal-close-btn" title="বন্ধ করো">✕</button>
+        </div>
+        <div class="stock-form-body"></div>
+      </div>
+    `;
+    document.body.appendChild(formModalOverlay);
+
+    formModalOverlay.querySelector('.modal-close-btn').addEventListener('click', closeFormModal);
+    formModalOverlay.addEventListener('click', (e) => {
+      if (e.target === formModalOverlay) closeFormModal();
+    });
+
     renderAddMedicineForm(
-      formContainer,
+      formModalOverlay.querySelector('.stock-form-body'),
       async () => {
         await renderStockList(listContainer, searchInput.value, handlers);
-        showAddForm();
+        closeFormModal();
       },
-      record
+      editRecord
     );
-    formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   const handlers = {
     onEdit: (id) => {
       const record = currentStock.find((m) => m.id === id);
-      if (record) showEditForm(record);
+      if (record) openFormModal(record);
     },
     onDelete: async (id) => {
       const record = currentStock.find((m) => m.id === id);
@@ -207,11 +224,11 @@ export async function renderStockView(container) {
     },
   };
 
+  openAddBtn.addEventListener('click', () => openFormModal());
+
   await renderStockList(listContainer, '', handlers);
 
   searchInput.addEventListener('input', (e) => {
     renderStockRows(listContainer, filterStock(currentStock, e.target.value), handlers);
   });
-
-  showAddForm();
 }
