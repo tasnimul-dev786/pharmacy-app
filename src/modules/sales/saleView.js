@@ -23,11 +23,10 @@ function debounce(fn, delay) {
   };
 }
 
-/** কার্ট টেবিল (মোডালের ভেতরে বসে) — qty/unit/price এডিট, কনফার্ম বাটন */
 function renderCartTable(el, { onConfirmed } = {}) {
   const cart = getCart();
   if (cart.length === 0) {
-    el.innerHTML = '<p class="empty-note">কার্ট খালি — সার্চ করে মেডিসিন যোগ করো।</p>';
+    el.innerHTML = '<p class="empty-note">কার্ট খালি — উপরে সার্চ করে মেডিসিন যোগ করো।</p>';
     return;
   }
 
@@ -179,27 +178,21 @@ async function renderSalesHistory(el) {
   });
 }
 
-/** সেল ভিউ container এর ভেতরে রেন্ডার করে — কার্ট এখন ফ্লোটিং বার + পপআপ */
+/** সেল ভিউ container এর ভেতরে রেন্ডার করে — সার্চ+কার্ট দুটোই পপআপের ভেতরে */
 export function renderSaleView(container) {
   container.innerHTML = `
     <h2>সেল</h2>
     <div id="shop-info-container" style="max-width:420px;margin-bottom:1rem"></div>
-    <div class="form-field autocomplete-wrapper" style="max-width:420px">
-      <input type="text" id="sale-search" autocomplete="off" placeholder="মেডিসিন খুঁজুন..." />
-      <ul id="sale-suggestions" class="suggestions-list hidden"></ul>
-    </div>
-    <h3 style="margin-top:2rem">সেলস হিস্ট্রি</h3>
+    <h3>সেলস হিস্ট্রি</h3>
     <div id="sales-history-container"></div>
-    <div id="cart-float-bar" class="cart-float-bar hidden">
-      <span id="cart-float-summary"></span>
-      <span>কার্ট দেখো ▸</span>
+    <div id="cart-float-bar" class="cart-float-bar">
+      <span id="cart-float-summary">নতুন সেল শুরু করতে ট্যাপ করো</span>
+      <span>▸</span>
     </div>
   `;
 
   renderShopInfoForm(container.querySelector('#shop-info-container'));
 
-  const searchInput = container.querySelector('#sale-search');
-  const suggestionsList = container.querySelector('#sale-suggestions');
   const historyContainer = container.querySelector('#sales-history-container');
   const floatBar = container.querySelector('#cart-float-bar');
   const floatSummary = container.querySelector('#cart-float-summary');
@@ -209,13 +202,10 @@ export function renderSaleView(container) {
   function updateFloatBar() {
     const cart = getCart();
     if (cart.length === 0) {
-      floatBar.classList.add('hidden');
-      return;
+      floatSummary.textContent = 'নতুন সেল শুরু করতে ট্যাপ করো';
+    } else {
+      floatSummary.textContent = `${cart.length} টা আইটেম · ৳${getCartTotal().toFixed(2)}`;
     }
-    floatBar.classList.remove('hidden');
-    floatSummary.textContent = `${cart.length} টা আইটেম · ৳${getCartTotal().toFixed(2)}`;
-
-    // মোডাল খোলা থাকলে সেটাও রিফ্রেশ করা
     if (cartModalOverlay) {
       const modalCartEl = cartModalOverlay.querySelector('.cart-modal-body');
       if (modalCartEl) renderCartTable(modalCartEl, { onConfirmed: closeCartModal });
@@ -237,10 +227,14 @@ export function renderSaleView(container) {
     cartModalOverlay.innerHTML = `
       <div class="modal-box cart-modal-box">
         <div class="modal-header">
-          <strong>কার্ট</strong>
+          <strong>নতুন সেল</strong>
           <button class="modal-close-btn" title="বন্ধ করো">✕</button>
         </div>
-        <div class="cart-modal-body"></div>
+        <div class="form-field autocomplete-wrapper">
+          <input type="text" id="sale-search" autocomplete="off" placeholder="মেডিসিন খুঁজুন..." />
+          <ul id="sale-suggestions" class="suggestions-list hidden"></ul>
+        </div>
+        <div class="cart-modal-body" style="margin-top:1rem"></div>
       </div>
     `;
     document.body.appendChild(cartModalOverlay);
@@ -251,6 +245,69 @@ export function renderSaleView(container) {
     });
 
     renderCartTable(cartModalOverlay.querySelector('.cart-modal-body'), { onConfirmed: closeCartModal });
+    wireSearch(cartModalOverlay);
+  }
+
+  function wireSearch(modalEl) {
+    const searchInput = modalEl.querySelector('#sale-search');
+    const suggestionsList = modalEl.querySelector('#sale-suggestions');
+
+    function hideSuggestions() {
+      suggestionsList.classList.add('hidden');
+      suggestionsList.innerHTML = '';
+    }
+
+    function showSuggestions(results, { emptyLabel = 'স্টকে পাওয়া যায়নি' } = {}) {
+      if (results.length === 0) {
+        suggestionsList.innerHTML = `<li class="suggestion-item">${emptyLabel}</li>`;
+        suggestionsList.classList.remove('hidden');
+        return;
+      }
+      suggestionsList.innerHTML = results
+        .map(
+          (r, i) => `
+          <li data-index="${i}" class="suggestion-item">
+            <span class="s-brand">${r.brandName}</span>
+            <span class="s-generic">${r.genericName || ''} · স্টকে ${r.totalPieces} পিস</span>
+          </li>`
+        )
+        .join('');
+      suggestionsList.classList.remove('hidden');
+
+      suggestionsList.querySelectorAll('.suggestion-item').forEach((li, i) => {
+        li.addEventListener('click', () => {
+          addToCart(results[i]);
+          searchInput.value = '';
+          hideSuggestions();
+          searchInput.focus();
+        });
+      });
+    }
+
+    const runSearch = debounce(async (query) => {
+      if (!query.trim()) {
+        const top = await getTopSellingStock(8);
+        showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
+        return;
+      }
+      const results = await searchStock(query);
+      showSuggestions(results);
+    }, 250);
+
+    searchInput.addEventListener('input', (e) => runSearch(e.target.value));
+
+    searchInput.addEventListener('focus', async () => {
+      if (!searchInput.value.trim()) {
+        const top = await getTopSellingStock(8);
+        showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
+      }
+    });
+
+    modalEl.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete-wrapper')) hideSuggestions();
+    });
+
+    searchInput.focus();
   }
 
   floatBar.addEventListener('click', openCartModal);
@@ -258,71 +315,4 @@ export function renderSaleView(container) {
   onCartChange(updateFloatBar);
   updateFloatBar();
   renderSalesHistory(historyContainer);
-
-  function hideSuggestions() {
-    suggestionsList.classList.add('hidden');
-    suggestionsList.innerHTML = '';
-  }
-
-  function showSuggestions(results, { emptyLabel = 'স্টকে পাওয়া যায়নি' } = {}) {
-    if (results.length === 0) {
-      suggestionsList.innerHTML = `<li class="suggestion-item">${emptyLabel}</li>`;
-      suggestionsList.classList.remove('hidden');
-      return;
-    }
-    suggestionsList.innerHTML = results
-      .map(
-        (r, i) => `
-        <li data-index="${i}" class="suggestion-item">
-          <span class="s-brand">${r.brandName}</span>
-          <span class="s-generic">${r.genericName || ''} · স্টকে ${r.totalPieces} পিস</span>
-        </li>`
-      )
-      .join('');
-    suggestionsList.classList.remove('hidden');
-
-    suggestionsList.querySelectorAll('.suggestion-item').forEach((li, i) => {
-      li.addEventListener('click', () => {
-        addToCart(results[i]);
-        searchInput.value = '';
-        hideSuggestions();
-        openCartModal();
-
-        requestAnimationFrame(() => {
-          const key = results[i].productKey;
-          const qtyInput = cartModalOverlay?.querySelector(`.cart-qty[data-key="${key}"]`);
-          if (qtyInput) {
-            qtyInput.focus();
-            qtyInput.select();
-          }
-        });
-      });
-    });
-  }
-
-  const runSearch = debounce(async (query) => {
-    if (!query.trim()) {
-      const top = await getTopSellingStock(8);
-      showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
-      return;
-    }
-    const results = await searchStock(query);
-    showSuggestions(results);
-  }, 250);
-
-  searchInput.addEventListener('input', (e) => runSearch(e.target.value));
-
-  searchInput.addEventListener('focus', async () => {
-    if (!searchInput.value.trim()) {
-      const top = await getTopSellingStock(8);
-      showSuggestions(top, { emptyLabel: 'স্টকে এখনো কিছু নেই' });
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!container.contains(e.target)) return;
-    if (!e.target.closest('.autocomplete-wrapper')) {
-      hideSuggestions();
-    }
-  });
 }
