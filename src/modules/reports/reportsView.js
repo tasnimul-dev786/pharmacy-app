@@ -109,7 +109,7 @@ export async function renderReportsView(container) {
 
   async function refreshRange(from, to) {
     currentRange = { from, to };
-    const { total, billCount, bestDay, numDays } = await getSalesInRange(from, to);
+    const { total, billCount, bestDay, numDays, totalProfit } = await getSalesInRange(from, to);
     const { prevTotal } = await getPeriodComparison(from, to);
 
     const fromLabel = toDDMMYYYY(from);
@@ -121,7 +121,7 @@ export async function renderReportsView(container) {
       changePercent = ((total - prevTotal) / prevTotal) * 100;
     }
 
-    currentStats = { total, billCount, avgPerDay, bestDay, changePercent, fromLabel, toLabel };
+    currentStats = { total, billCount, avgPerDay, bestDay, changePercent, fromLabel, toLabel, totalProfit };
 
     let comparisonHtml = '';
     if (changePercent !== null) {
@@ -139,6 +139,7 @@ export async function renderReportsView(container) {
       <div class="report-summary-line">${fromLabel} থেকে ${toLabel} পর্যন্ত</div>
       <div class="report-summary-big">৳${total.toFixed(2)}</div>
       <div class="report-summary-line">মোট ${billCount} টা বিল · গড়ে দৈনিক ৳${avgPerDay.toFixed(2)}</div>
+      <div class="report-summary-line trend-up">মোট লাভ: ৳${totalProfit.toFixed(2)}</div>
       ${comparisonHtml}
       ${bestDayHtml}
     `;

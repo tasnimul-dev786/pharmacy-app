@@ -38,9 +38,11 @@ export async function confirmSale(cartItems, customerName = '', discount = { val
       }
     }
 
-    // --- FEFO ডিডাকশন ---
+    // --- FEFO ডিডাকশন + প্রতি আইটেমের ক্রয়মূল্য ট্র্যাক (লাভ হিসাবের জন্য) ---
+    const costByProductKey = {};
     for (const item of itemsWithPieces) {
       let remaining = item.qtyPieces;
+      let costAccumulated = 0;
       const allBatches = await db.medicines.where('brandName').equalsIgnoreCase(item.brandName).toArray();
       const matching = allBatches
         .filter((b) => normalizeKey(b.brandName, b.genericName) === item.productKey)
@@ -58,10 +60,18 @@ export async function confirmSale(cartItems, customerName = '', discount = { val
         const deduct = Math.min(batchQty, remaining);
         const newTotalPieces = batchQty - deduct;
 
-        // unit/piecesPerStrip/stripsPerBox অপরিবর্তিত রাখা হচ্ছে — নাহলে পরের সেলে
-        // স্ট্রিপ/বক্স কনভার্শন তথ্য হারিয়ে যায়। quantity-ও একই এককে recompute করা হয়।
+        // batch.purchasePrice হলো প্রতি-ইউনিট (batch তৈরির সময় যে unit এ কেনা হয়েছিল) দাম।
+        // পিস-এ কনভার্ট করে এই deduct এর cost হিসাব করা হচ্ছে।
         const pps = batch.piecesPerStrip || 1;
         const spb = batch.stripsPerBox || 1;
+        let costPerPiece = 0;
+        if (batch.purchasePrice != null) {
+          if (batch.unit === 'box') costPerPiece = batch.purchasePrice / (pps * spb);
+          else if (batch.unit === 'strip') costPerPiece = batch.purchasePrice / pps;
+          else costPerPiece = batch.purchasePrice;
+        }
+        costAccumulated += deduct * costPerPiece;
+
         let newQuantity;
         if (batch.unit === 'box') {
           newQuantity = newTotalPieces / (pps * spb);
@@ -77,6 +87,7 @@ export async function confirmSale(cartItems, customerName = '', discount = { val
         });
         remaining -= deduct;
       }
+      costByProductKey[item.productKey] = costAccumulated;
     }
 
     const subtotal = itemsWithPieces.reduce((sum, c) => sum + Number(c.saleQty) * c.unitPrice, 0);
@@ -88,15 +99,24 @@ export async function confirmSale(cartItems, customerName = '', discount = { val
     const total = subtotal - discountAmount;
     const date = new Date().toISOString();
 
-    const saleItems = itemsWithPieces.map((c) => ({
-      brandName: c.brandName,
-      genericName: c.genericName,
-      saleUnit: c.saleUnit,
-      saleQty: Number(c.saleQty),
-      qtyPieces: c.qtyPieces,
-      unitPrice: c.unitPrice,
-      subtotal: Number(c.saleQty) * c.unitPrice,
-    }));
+    const saleItems = itemsWithPieces.map((c) => {
+      const cost = costByProductKey[c.productKey] || 0;
+      const itemSubtotal = Number(c.saleQty) * c.unitPrice;
+      return {
+        brandName: c.brandName,
+        genericName: c.genericName,
+        saleUnit: c.saleUnit,
+        saleQty: Number(c.saleQty),
+        qtyPieces: c.qtyPieces,
+        unitPrice: c.unitPrice,
+        subtotal: itemSubtotal,
+        cost,
+        profit: itemSubtotal - cost,
+      };
+    });
+
+    const totalCost = saleItems.reduce((sum, i) => sum + i.cost, 0);
+    const totalProfit = total - totalCost;
 
     const saleId = await db.sales.add({
       date,
@@ -107,12 +127,14 @@ export async function confirmSale(cartItems, customerName = '', discount = { val
       discountValue,
       discountAmount,
       total,
+      totalCost,
+      totalProfit,
     });
 
     const invoiceNumber = `INV-${new Date(date).getTime()}`;
     await db.invoices.add({ saleId, invoiceNumber, date, printed: false });
 
-    return { saleId, invoiceNumber, subtotal, discountType: discount.type, discountValue, discountAmount, total, date, items: saleItems };
+    return { saleId, invoiceNumber, subtotal, discountType: discount.type, discountValue, discountAmount, total, totalCost, totalProfit, date, items: saleItems };
   });
 }
 

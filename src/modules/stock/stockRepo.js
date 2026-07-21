@@ -47,6 +47,7 @@ export async function addMedicineToStock({
   batchNo = '',
   expiryDate = '',
   unitPrice = null,
+  purchasePrice = null,
   lowStockThreshold = null,
 }) {
   if (!brandName || !brandName.trim()) {
@@ -86,6 +87,7 @@ export async function addMedicineToStock({
     batchNo: batchNo.trim(),
     expiryDate: expiryDate || null,
     unitPrice: unitPrice !== null && unitPrice !== '' ? Number(unitPrice) : null,
+    purchasePrice: purchasePrice !== null && purchasePrice !== '' ? Number(purchasePrice) : null,
     lowStockThreshold: lowStockThreshold !== null && lowStockThreshold !== '' ? Number(lowStockThreshold) : null,
     createdAt: new Date().toISOString(),
   });
@@ -136,11 +138,19 @@ export function aggregateByProduct(batchRecords, { filterAvailable = true } = {}
 
   return list
     .map((g) => {
-      const latest = [...g.batches].sort((a, b) => b.id - a.id)[0];
+      // যে ব্যাচে সবচেয়ে ভালো conversion তথ্য (piecesPerStrip > 1) আছে সেটাই representative —
+      // শুধু "latest by id" ধরলে পুরনো/ভুল ব্যাচের তথ্য চলে আসতে পারে
+      const sorted = [...g.batches].sort((a, b) => {
+        const aHas = (a.piecesPerStrip || 1) > 1 ? 1 : 0;
+        const bHas = (b.piecesPerStrip || 1) > 1 ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        return b.id - a.id;
+      });
+      const best = sorted[0];
       return {
         ...g,
-        piecesPerStrip: latest.piecesPerStrip || 1,
-        unitPrice: latest.unitPrice ?? 0,
+        piecesPerStrip: best.piecesPerStrip || 1,
+        unitPrice: best.unitPrice ?? 0,
         lowStockThreshold: g.batches.find((b) => b.lowStockThreshold != null)?.lowStockThreshold ?? null,
       };
     })
@@ -168,6 +178,7 @@ export async function updateMedicineInStock(id, {
   batchNo = '',
   expiryDate = '',
   unitPrice = null,
+  purchasePrice = null,
   lowStockThreshold = null,
 }) {
   if (!brandName || !brandName.trim()) {
@@ -206,6 +217,7 @@ export async function updateMedicineInStock(id, {
     batchNo: batchNo.trim(),
     expiryDate: expiryDate || null,
     unitPrice: unitPrice !== null && unitPrice !== '' ? Number(unitPrice) : null,
+    purchasePrice: purchasePrice !== null && purchasePrice !== '' ? Number(purchasePrice) : null,
     lowStockThreshold: lowStockThreshold !== null && lowStockThreshold !== '' ? Number(lowStockThreshold) : null,
   });
 }

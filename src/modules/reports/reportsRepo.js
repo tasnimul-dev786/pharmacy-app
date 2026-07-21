@@ -61,6 +61,7 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
   const totalsByDate = {};
   let total = 0;
   let billCount = 0;
+  let totalProfit = 0;
 
   sales.forEach((s) => {
     const d = new Date(s.date);
@@ -69,6 +70,7 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
       totalsByDate[key] = (totalsByDate[key] || 0) + s.total;
       total += s.total;
       billCount += 1;
+      totalProfit += s.totalProfit || 0;
     }
   });
 
@@ -79,7 +81,7 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
 
   const numDays = Math.round((to - from) / (1000 * 60 * 60 * 24)) + 1;
 
-  return { total, billCount, bestDay, numDays };
+  return { total, billCount, bestDay, numDays, totalProfit };
 }
 
 /** আগের সমান-দৈর্ঘ্যের পিরিয়ডের সাথে তুলনা — কত % বাড়ল/কমল */
