@@ -598,3 +598,52 @@ body {
   font-size: 1.1rem;
   color: #1a7f4e;
 }
+
+/* --- রিপোর্ট স্ট্যাট গ্রিড --- */
+.report-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+}
+
+.report-stat {
+  background: #f7f7f7;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.report-stat-label {
+  font-size: 0.78rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.report-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+}
+
+.report-stat-profit {
+  color: #1a7f4e;
+}
+
+.report-trend-badge {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.report-trend-badge.trend-up {
+  background: #eef6ef;
+  color: #1a7f4e;
+}
+
+.report-trend-badge.trend-down {
+  background: #fdecea;
+  color: #c0392b;
+}

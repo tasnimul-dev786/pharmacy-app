@@ -36,18 +36,14 @@ export async function downloadReportPDF(stats, topSelling) {
   doc.setFontSize(11);
   doc.text(`Total Sales: ${stats.total.toFixed(2)}`, 15, y);
   y += 7;
-  doc.text(`Total Bills: ${stats.billCount}`, 15, y);
-  y += 7;
-  doc.text(`Average per day: ${stats.avgPerDay.toFixed(2)}`, 15, y);
+  doc.text(`Total Purchase Cost: ${stats.totalCost.toFixed(2)}`, 15, y);
   y += 7;
   doc.text(`Total Profit: ${stats.totalProfit.toFixed(2)}`, 15, y);
   y += 7;
+  doc.text(`Total Bills: ${stats.billCount}`, 15, y);
+  y += 7;
   if (stats.changePercent !== null) {
     doc.text(`vs previous period: ${stats.changePercent >= 0 ? '+' : ''}${stats.changePercent.toFixed(0)}%`, 15, y);
-    y += 7;
-  }
-  if (stats.bestDay) {
-    doc.text(`Best day: ${stats.bestDay.date} (${stats.bestDay.amount.toFixed(2)})`, 15, y);
     y += 7;
   }
 

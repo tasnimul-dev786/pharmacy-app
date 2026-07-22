@@ -109,39 +109,45 @@ export async function renderReportsView(container) {
 
   async function refreshRange(from, to) {
     currentRange = { from, to };
-    const { total, billCount, bestDay, numDays, totalProfit } = await getSalesInRange(from, to);
+    const { total, totalCost, totalProfit, billCount } = await getSalesInRange(from, to);
     const { prevTotal } = await getPeriodComparison(from, to);
 
     const fromLabel = toDDMMYYYY(from);
     const toLabel = toDDMMYYYY(to);
-    const avgPerDay = numDays > 0 ? total / numDays : 0;
 
     let changePercent = null;
     if (prevTotal > 0) {
       changePercent = ((total - prevTotal) / prevTotal) * 100;
     }
 
-    currentStats = { total, billCount, avgPerDay, bestDay, changePercent, fromLabel, toLabel, totalProfit };
+    currentStats = { total, totalCost, totalProfit, billCount, changePercent, fromLabel, toLabel };
 
     let comparisonHtml = '';
     if (changePercent !== null) {
       const up = changePercent >= 0;
-      comparisonHtml = `<div class="report-summary-line ${up ? 'trend-up' : 'trend-down'}">
-        আগের একই দৈর্ঘ্যের সময়ের তুলনায় ${up ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(0)}%
-      </div>`;
+      comparisonHtml = `<span class="report-trend-badge ${up ? 'trend-up' : 'trend-down'}">${up ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(0)}%</span>`;
     }
-
-    const bestDayHtml = bestDay
-      ? `<div class="report-summary-line">সবচেয়ে বেশি বিক্রি: ${formatDateReadable(bestDay.date)} (৳${bestDay.amount.toFixed(2)})</div>`
-      : '';
 
     summaryEl.innerHTML = `
       <div class="report-summary-line">${fromLabel} থেকে ${toLabel} পর্যন্ত</div>
-      <div class="report-summary-big">৳${total.toFixed(2)}</div>
-      <div class="report-summary-line">মোট ${billCount} টা বিল · গড়ে দৈনিক ৳${avgPerDay.toFixed(2)}</div>
-      <div class="report-summary-line trend-up">মোট লাভ: ৳${totalProfit.toFixed(2)}</div>
-      ${comparisonHtml}
-      ${bestDayHtml}
+      <div class="report-stat-grid">
+        <div class="report-stat">
+          <div class="report-stat-label">বিক্রি</div>
+          <div class="report-stat-value">৳${total.toFixed(2)}</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-label">কেনার খরচ</div>
+          <div class="report-stat-value">৳${totalCost.toFixed(2)}</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-label">লাভ ${comparisonHtml}</div>
+          <div class="report-stat-value report-stat-profit">৳${totalProfit.toFixed(2)}</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-label">মোট বিল</div>
+          <div class="report-stat-value">${billCount}</div>
+        </div>
+      </div>
     `;
 
     currentTopSelling = await getTopSellingMedicines(10, from, to);

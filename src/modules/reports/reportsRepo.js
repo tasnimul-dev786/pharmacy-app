@@ -58,30 +58,22 @@ export async function getSalesInRange(fromDateStr, toDateStr) {
   const from = new Date(fromDateStr + 'T00:00:00');
   const to = new Date(toDateStr + 'T23:59:59');
 
-  const totalsByDate = {};
   let total = 0;
-  let billCount = 0;
+  let totalCost = 0;
   let totalProfit = 0;
+  let billCount = 0;
 
   sales.forEach((s) => {
     const d = new Date(s.date);
     if (d >= from && d <= to) {
-      const key = dateKey(s.date);
-      totalsByDate[key] = (totalsByDate[key] || 0) + s.total;
       total += s.total;
-      billCount += 1;
+      totalCost += s.totalCost || 0;
       totalProfit += s.totalProfit || 0;
+      billCount += 1;
     }
   });
 
-  let bestDay = null;
-  Object.entries(totalsByDate).forEach(([key, amount]) => {
-    if (!bestDay || amount > bestDay.amount) bestDay = { date: key, amount };
-  });
-
-  const numDays = Math.round((to - from) / (1000 * 60 * 60 * 24)) + 1;
-
-  return { total, billCount, bestDay, numDays, totalProfit };
+  return { total, totalCost, totalProfit, billCount };
 }
 
 /** আগের সমান-দৈর্ঘ্যের পিরিয়ডের সাথে তুলনা — কত % বাড়ল/কমল */
