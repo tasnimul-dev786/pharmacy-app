@@ -40,6 +40,7 @@ function batchRowHtml(m, { showName = false } = {}) {
         ${m.batchNo ? `<span class="s-generic"> · ব্যাচ: ${m.batchNo}</span>` : ''}
         ${m.expiryDate ? `<span class="s-generic"> · মেয়াদ: ${m.expiryDate}</span>` : ''}
         ${addedDate ? `<div class="s-date">যোগ হয়েছে: ${addedDate}</div>` : ''}
+        ${m.purchasePrice == null ? '<span class="badge badge-warning">⚠️ ক্রয়মূল্য নেই</span>' : ''}
       </div>
       <div class="stock-row-right">
         <span>
@@ -102,6 +103,7 @@ function renderStockRows(listEl, stock, handlers) {
       if (g.batches.length === 1) {
         return batchRowHtml(g.batches[0], { showName: true });
       }
+      const hasMissingPrice = g.batches.some((b) => b.purchasePrice == null);
       return `
         <div class="stock-summary-row" data-key="${g.productKey}">
           <div>
@@ -109,6 +111,7 @@ function renderStockRows(listEl, stock, handlers) {
             ${g.genericName ? `<span class="s-generic"> · ${g.genericName}</span>` : ''}
           </div>
           <span class="badge badge-total">মোট ${g.totalPieces} পিস · ${g.batches.length} ব্যাচ</span>
+          ${hasMissingPrice ? '<span class="badge badge-warning">⚠️ কিছু ব্যাচে দাম নেই</span>' : ''}
         </div>`;
     })
     .join('');
