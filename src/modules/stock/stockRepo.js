@@ -59,6 +59,9 @@ export async function addMedicineToStock({
   if (Number(quantity) < 0) {
     throw new Error('কোয়ান্টিটি ঋণাত্মক হতে পারে না');
   }
+  if (purchasePrice === null || purchasePrice === undefined || purchasePrice === '' || isNaN(purchasePrice)) {
+    throw new Error('ক্রয় মূল্য দিতে হবে (রিপোর্টে সঠিক লাভ হিসাবের জন্য জরুরি)');
+  }
 
   const pps = Number(piecesPerStrip) > 0 ? Number(piecesPerStrip) : 1;
   const spb = Number(stripsPerBox) > 0 ? Number(stripsPerBox) : 1;
@@ -189,6 +192,9 @@ export async function updateMedicineInStock(id, {
   }
   if (Number(quantity) < 0) {
     throw new Error('কোয়ান্টিটি ঋণাত্মক হতে পারে না');
+  }
+  if (purchasePrice === null || purchasePrice === undefined || purchasePrice === '' || isNaN(purchasePrice)) {
+    throw new Error('ক্রয় মূল্য দিতে হবে (রিপোর্টে সঠিক লাভ হিসাবের জন্য জরুরি)');
   }
 
   const pps = Number(piecesPerStrip) > 0 ? Number(piecesPerStrip) : 1;

@@ -35,6 +35,11 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
       </div>
 
       <div class="form-field">
+        <label for="purchasePrice">ক্রয় মূল্য (টাকা/ইউনিট) *</label>
+        <input type="number" id="purchasePrice" name="purchasePrice" min="0" step="0.01" required placeholder="যেমন: 3.50" />
+      </div>
+
+      <div class="form-field">
         <label for="unit">এককের ধরন *</label>
         <select id="unit" name="unit">
           <option value="box" selected>বক্স</option>
@@ -55,7 +60,7 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
       </div>
 
       <details class="optional-fields" ${isEdit ? 'open' : ''}>
-        <summary>ব্যাচ / এক্সপায়ারি / দাম (ঐচ্ছিক)</summary>
+        <summary>ব্যাচ / এক্সপায়ারি / বিক্রয়মূল্য (ঐচ্ছিক)</summary>
 
         <div class="form-field">
           <label for="batchNo">ব্যাচ নম্বর</label>
@@ -65,11 +70,6 @@ export function renderAddMedicineForm(container, onSuccess, editRecord = null) {
         <div class="form-field">
           <label for="expiryDate">এক্সপায়ারি ডেট</label>
           <input type="date" id="expiryDate" name="expiryDate" />
-        </div>
-
-        <div class="form-field">
-          <label for="purchasePrice">ক্রয় মূল্য (টাকা/ইউনিট)</label>
-          <input type="number" id="purchasePrice" name="purchasePrice" min="0" step="0.01" placeholder="যেমন: 3.50" />
         </div>
 
         <div class="form-field">
